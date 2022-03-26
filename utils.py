@@ -46,7 +46,7 @@ def patch_metrics(patch_info, num_classes):
     for i in range(num_classes):
         fpr[i], tpr[i], _ = metrics.roc_curve(label_one_hot[:, i], y_score[:, i])
         roc_auc[i] = metrics.auc(fpr[i], tpr[i])
-    roc_auc = np.mean([v for v in roc_auc.values()])
+    overall_auc = np.mean([v for v in roc_auc.values()])
     overall_acc = metrics.accuracy_score(patch_info['gt_label'], patch_info['prediction'])
     overall_f1 = metrics.f1_score(patch_info['gt_label'], patch_info['prediction'], average='macro')
     conf_mat = metrics.confusion_matrix(patch_info['gt_label'], patch_info['prediction'], labels=[0,1,2,3])

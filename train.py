@@ -202,7 +202,7 @@ class SimpleDANNTrain(object):
             self.writer.add_scalar(f'validation/_val_acc', val_acc, global_step=epoch)
             self.writer.add_scalar(f'validation/_val_auc', val_auc, global_step=epoch)
             self.writer.add_scalar(f'validation/_val_loss', val_loss, global_step=epoch)
-            print(f"Validation (patch) AUC is {val_auc:.4f}, ACC is {val_acc:.4f}.")
+            print(f"Validation (patch) loss is {val_loss:.4f}, AUC is {val_auc:.4f}, ACC is {val_acc:.4f}.")
         else:
             val_auc  = perf['overall_auc']
             val_acc  = perf['overall_acc']
@@ -286,8 +286,8 @@ class SimpleDANNTrain(object):
         info = self.validate(test_dataloader, test=True)
         test_perf = info['performance']
         # save results
-        save_dict(info, f"{self.cfg['checkpoints']}/test_{self.cfg['val_criteria']}.pkl")
-        save_json(info['performance'], f"{self.cfg['checkpoints']}/test_{self.cfg['val_criteria']}.json")
+        save_dict(info, f"{self.cfg['checkpoints']}/test_{dataset}_{self.cfg['val_criteria']}.pkl")
+        save_json(info['performance'], f"{self.cfg['checkpoints']}/test_{dataset}_{self.cfg['val_criteria']}.json")
 
         # print results
         for k in ['overall_auc', 'overall_acc', 'overall_f1']:
@@ -326,26 +326,26 @@ if __name__ == '__main__':
     print(slices)
 
     # sample config file for the training class
-    cfg = {'tensorboard_dir': '', # dir to save tensorboard
+    cfg = {'tensorboard_dir': 'tensorboard_log', # dir to save tensorboard
     'saved_model_path': None,  # path of pretrained model
     'num_classes': 4,  # number of class
     'optimizer': 'Adam',  # name of optimizer
     'lr': 0.001,  # learning rate
     'wd': 0.005,  # weight decay
     'use_schedular': False,  # bool to select whether to use scheduler
-    'epochs': 1,  # number of training epochs
+    'epochs': 10,  # number of training epochs
     'source_dataset': '../data/VPC-10X',   # path to vancouver dataset
     'source_train_idx': [2,5,6,7],   # indexes of the slides used for training (van dataset)
     'source_val_idx': [3],   # indexes of the slides used for validation (van dataset)
     'source_test_idx': [1],   # indexes of the slides used for testing (van dataset)
-    'batch_size': 2,  # batch size
+    'batch_size': 8,  # batch size
     'augment': True,  # whether use classical cv augmentation
     'target_dataset': '../data/Colorado-10X',  # path to Colorado dataset
     'target_train_idx': slices[:-2],  # indexes of the slides used for training (CO dataset)
     'target_test_idx': slices[-2:],  # indexes of the slides used for testing (CO dataset)
     'num_workers': 1, # number of workers
     'val_criteria': 'overall_acc',  # criteria to keep the current best model, can be overall_acc, overall_f1, overall_auc, val_loss
-    'checkpoints': 'checkpoints',  # dir to save the best model, training configurations and results
+    'checkpoints': '../checkpoints',  # dir to save the best model, training configurations and results
     'only_test': False  # select true if only want to do testing
 
     }
