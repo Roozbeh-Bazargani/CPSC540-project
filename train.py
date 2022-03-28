@@ -29,7 +29,7 @@ class SimpleDANNTrain(object):
             os.mkdir(self.cfg["checkpoints"])
 
         # build model
-        self.model = DANN(cfg['num_classes'])
+        self.model = DANN(model_name=cfg['model_name'], num_classes=cfg['num_classes'], feature_block=cfg['feature_block'])
         # load previous model is provided with the path to model.pkl
         if self.cfg['saved_model_path'] != None:
             saved_weight = torch.load( self.cfg['saved_model_path'])
@@ -328,6 +328,8 @@ if __name__ == '__main__':
     # sample config file for the training class
     cfg = {'tensorboard_dir': 'tensorboard_log', # dir to save tensorboard
     'saved_model_path': None,  # path of pretrained model
+    'model_name': 'resnet34', # resnet34 or resnet18
+    'feature_block': 3, # select the feature layer that is sent to the domain discriminator, int from 1 ~ 4
     'num_classes': 4,  # number of class
     'optimizer': 'Adam',  # name of optimizer
     'lr': 0.001,  # learning rate
