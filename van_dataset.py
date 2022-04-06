@@ -9,15 +9,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import cv2
+from skimage import io
 
 van_prefix = lambda x:'Slide' + str(x).zfill(3)
 
-VAN_TEST = [1]
-VAN_VAL = [3]
+VANCOUVER_CLASS_INDEXES_MAPPING = {'1': 0, '3': 1, '4': 2, '5': 3}
 
 class VanDataset(Dataset):
 
-    def __init__(self, root_folder, slide_indexs=[], augment=False, grayscale=True, crop=True, flip=True, rotate=True, noise=True, max_crop_pixel=20, max_rotate_angle=45, gaussian_noise_sigma=5):
+    def __init__(self, root_folder, slide_indexs=[], transform=None):
         """
         Input:
         - root_folder: root folder to the dataset
@@ -28,6 +28,7 @@ class VanDataset(Dataset):
         self.root_folder = root_folder
         # load images
         self.image_names = []
+
         for idx in slide_indexs:
             slide_name = van_prefix(idx)
             img_names = os.listdir(os.path.join(self.root_folder, slide_name))
@@ -35,33 +36,10 @@ class VanDataset(Dataset):
             img_names = list(filter(lambda x:int(x[-5]) != 0 and int(x[-5]) != 6, img_names))
             image_files = [os.path.join(slide_name, img) for img in img_names]
             self.image_names += image_files
-
-        self.image_names.sort()
-
-        self.augment = augment
-        self.grayscale = grayscale
-
-        # flag for data augmentation
-        self.flip = False
-        self.rotate = False
-        self.noise = False
-        self.crop = False
-        self.max_crop_pixel = None
-        self.max_rotate_angle = None
-        self.gaussian_noise_sigma = None
-        self.use_mixup = False
-        
-        # select data augmentation option here
-        if self.augment:
-            self.flip = flip
-            self.rotate = rotate
-            self.noise = noise
-            self.crop = crop
-            self.max_crop_pixel = max_crop_pixel
-            self.max_rotate_angle = max_rotate_angle
-            self.gaussian_noise_sigma = gaussian_noise_sigma
-        # can define other augmentation here
-
+        if transform is None:
+            self.transform = transforms.ToTensor()
+        else:
+            self.transform = transform
 
     def __len__(self):
         return len(self.image_names)
@@ -76,65 +54,12 @@ class VanDataset(Dataset):
         - image and label
         """
 
-        # use opencv for data augmentation
-
-        if self.augment:
-            image = cv2.imread(os.path.join(self.root_folder, self.image_names[idx]))
-
-            # random cropping
-            if self.crop:
-                h, w, _ = image.shape
-                # generate random cropping
-                left = np.random.randint(0, self.max_crop_pixel)
-                right = np.random.randint(0, self.max_crop_pixel)
-                top = np.random.randint(0, self.max_crop_pixel)
-                bottom = np.random.randint(0, self.max_crop_pixel)
-
-                image = image[top:h-bottom, left:w-right, :]
-
-                image = cv2.resize(image, (w, h))
-            # random left-right flipping
-            if self.flip:
-                if np.random.rand() > 0.5:
-                    image = np.fliplr(image).copy()
-
-            # random rotationt
-            if self.rotate:
-                h, w, _ = image.shape
-                angle = np.random.randint(-self.max_rotate_angle, self.max_rotate_angle)
-                center = (w / 2, h / 2)
-                rot_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
-                image = cv2.warpAffine(image, rot_matrix, (w, h), flags=cv2.INTER_LINEAR)
-
-            # add random gaussian noise
-            if self.noise:
-                gauss = np.random.normal(0, self.gaussian_noise_sigma, image.shape)
-                image = image + gauss
-                image = np.where(image > 0, image, 0)
-                image = np.where(image < 255, image, 255)
-                image = image.astype(np.int)      
-
-
-        else:
-            image = cv2.imread(os.path.join(self.root_folder, self.image_names[idx]))
-
-        # visualization helper
-        # convert to tensor    
-        # only read grayscale
-        image = image / 255.
-        image = np.transpose(image, (2, 0, 1))
-        image = torch.from_numpy(image.copy())
+        print(self.image_names[idx])
+        image = io.imread(os.path.join(self.root_folder, self.image_names[idx]))
+        image = self.transform(image)
 
         # get class
-        cls = int(self.image_names[idx][-5])
-        if cls == 1:
-            label = 0
-        elif cls == 3:
-            label = 1
-        elif cls == 4:
-            label = 2
-        elif cls == 5:
-            label = 3
+        label = int(VANCOUVER_CLASS_INDEXES_MAPPING[self.image_names[idx][-5]])
 
         return {'image': image.float(), 'label':label}  
 
@@ -144,8 +69,8 @@ if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
 
-    root_folder = 'VPC-10X'
-    dataset = VanDataset(root_folder, slide_indexs=[1], augment=True)
+    root_folder = '../data/VPC-10X'
+    dataset = VanDataset(root_folder, slide_indexs=[1])
 
     data = dataset.__getitem__(10)
 
@@ -153,8 +78,7 @@ if __name__ == '__main__':
 
     image = data['image']
     print(image.shape)
-    image = image.numpy()
-    axes.imshow(image[0])
+    plt.imshow(image.permute(1, 2, 0))
     label = data['label']
     print(label)
 

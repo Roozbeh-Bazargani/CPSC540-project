@@ -131,7 +131,13 @@ class DANN(nn.Module):
 
 if __name__ == "__main__":
 
-    model = DANN('resnet18', 4, 4)
-    # print(model)
-    class_output, domain_output = model(torch.rand(4, 3, 512, 512))
-    print(class_output.shape, domain_output.shape)
+    # model = DANN('resnet18', 4, 4)
+    # # print(model)
+    # class_output, domain_output = model(torch.rand(4, 3, 512, 512))
+    # print(class_output.shape, domain_output.shape)
+
+    # test loading pretrained model   ## TODO: wait for the code to check
+    model = DANN('resnet18', 5, 4)
+    pretrain_dict = torch.load('pretrained_models/model_patch_overall_auc.pth', map_location='cpu')
+    model.load_state_dict(pretrain_dict['model'])
+    
