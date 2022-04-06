@@ -6,14 +6,28 @@ import json
 import pickle
 import copy
 
-def get_source_dataloader(dataset_path, slides, batch_size, augment=False, shuffle=False, num_workers=1):
-    dataset = VanDataset(root_folder=dataset_path, slide_indexs=slides, augment=augment)
+## TODO: can change the data augmentation here
+AUGMENTED_TRANSFORM = transforms.Compose([
+    transforms.ToPILImage(),
+    transforms.RandomResizedCrop(512),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor()]
+)
+
+def get_source_dataloader(dataset_path, slides, batch_size, classification_type, augment=False, shuffle=False, num_workers=1):
+    if augment:
+        dataset = VanDataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, transform=AUGMENTED_TRANSFORM)
+    else:
+        dataset = VanDataset(root_folder=dataset_path, slide_indexs=slides)
     # print("length of dataset %d\n" % dataset.__len__())
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, drop_last=False) 
     return dataloader
 
-def get_target_dataloader(dataset_path, slides, batch_size, augment=False, shuffle=False, num_workers=1):
-    dataset = CODataset(root_folder=dataset_path, slide_indexs=slides, augment=augment)
+def get_target_dataloader(dataset_path, slides, batch_size, classification_type, augment=False, shuffle=False, num_workers=1):
+    if augment:
+        dataset = CODataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, transform=AUGMENTED_TRANSFORM)
+    else:
+        dataset = CODataset(root_folder=dataset_path, slide_indexs=slides)
     # print("length of dataset %d\n" % dataset.__len__())
 
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, drop_last=False) 

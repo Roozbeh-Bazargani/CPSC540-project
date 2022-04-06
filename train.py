@@ -16,6 +16,9 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 
+NUMBER_OF_CLASSES = {'full': 4, 'cancer': 2, 'grade': 2}
+
+
 class SimpleDANNTrain(object):
     def __init__(self, cfg):
         """
@@ -216,9 +219,9 @@ class SimpleDANNTrain(object):
         # save config file
         save_json(self.cfg, os.path.join(self.cfg["checkpoints"], 'training_config.json'))
         # get dataset
-        train_dataloader = get_source_dataloader(self.cfg['source_dataset'], self.cfg['source_train_idx'], self.cfg['batch_size'], self.cfg['augment'], shuffle=True, num_workers=self.cfg['num_workers'])
-        valid_dataloader = get_source_dataloader(self.cfg['source_dataset'], self.cfg['source_val_idx'], self.cfg['batch_size'], augment=False, shuffle=False, num_workers=self.cfg['num_workers'])
-        target_train_dataloader = get_target_dataloader(self.cfg['target_dataset'], self.cfg['target_train_idx'],  self.cfg['batch_size'], self.cfg['augment'], shuffle=True, num_workers=self.cfg['num_workers'])
+        train_dataloader = get_source_dataloader(self.cfg['source_dataset'], self.cfg['source_train_idx'], self.cfg['batch_size'], self.cfg['classification_type'], augment=self.cfg['augment'], shuffle=True, num_workers=self.cfg['num_workers'])
+        valid_dataloader = get_source_dataloader(self.cfg['source_dataset'], self.cfg['source_val_idx'], self.cfg['batch_size'], self.cfg['classification_type'], augment=False, shuffle=False, num_workers=self.cfg['num_workers'])
+        target_train_dataloader = get_target_dataloader(self.cfg['target_dataset'], self.cfg['target_train_idx'],  self.cfg['batch_size'], self.cfg['classification_type'],  augment=self.cfg['augment'], shuffle=True, num_workers=self.cfg['num_workers'])
         
         if self.cfg['val_criteria'] == 'val_loss':
             best_criteria_value = np.inf
@@ -330,7 +333,8 @@ if __name__ == '__main__':
     'saved_model_path': None,  # path of pretrained model
     'model_name': 'resnet34', # resnet34 or resnet18
     'feature_block': 3, # select the feature layer that is sent to the domain discriminator, int from 1 ~ 4
-    'num_classes': 4,  # number of class
+    # 'num_classes': 4,  # number of class
+    'classification_type': 'grade', # classify all, or benign vs cancer, or low grade vs high grade. String: 'full', 'cancer' or 'grade'
     'optimizer': 'Adam',  # name of optimizer
     'lr': 0.001,  # learning rate
     'wd': 0.005,  # weight decay
@@ -351,6 +355,8 @@ if __name__ == '__main__':
     'only_test': False  # select true if only want to do testing
 
     }
+
+    cfg['num_classes'] = NUMBER_OF_CLASSES[cfg['classification_type']]
 
     # init trainer
     trainer = SimpleDANNTrain(cfg)
