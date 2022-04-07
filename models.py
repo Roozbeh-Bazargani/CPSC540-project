@@ -31,7 +31,6 @@ class DANN(nn.Module):
         else:
             raise ValueError("Wrong model name!")
 
-        # if model_name == 'resnet34':
         if feature_block == 1:
             modules = list(resnet.children())[:5]
             self.feat = nn.Sequential(*modules)
