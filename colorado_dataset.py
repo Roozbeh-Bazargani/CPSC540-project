@@ -5,7 +5,8 @@ from torchvision import transforms
 
 import matplotlib.pyplot as plt
 from skimage import io
-
+import numpy as np
+import torch
 
 COLORADO_CLASS_INDEXES_MAPPING = {'A': 0, 'AI': 0, 'B': 1, 'C': 2, 'F': 2, 'H': 0, 'I': 3, 'P': 2, 'S': 1, 'T': 2}
 
@@ -56,8 +57,27 @@ class CODataset(Dataset):
                             image_files = [os.path.join(idx, s, image_size, core, f) for f in os.listdir(os.path.join(root_folder, idx, s, image_size, core))]
                             self.image_names += image_files
                             self.labels += [COLORADO_CLASS_INDEXES_MAPPING[idx]] * len(image_files)
+
+        # get ratio of the class
+        if self.classification_type == 'full':
+            self.ratio = np.zeros(4)
+            for label in self.labels:
+                self.ratio[label] += 1
+        elif self.classification_type == 'cancer':
+            self.ratio = np.zeros(2)
+            for label in self.labels:
+                l = 0 if label == 0 else 1
+                self.ratio[l] += 1
+        elif self.classification_type == 'grade':
+            for label in self.labels:
+                l = 0 if (label == 1) else 1
+                self.ratio[l] += 1
+        
+        self.ratio = 1 / (self.ratio + 1) ## avoid divided by zero 
+        self.ratio /= np.sum(self.ratio)
         
         assert len(self.labels) == len(self.image_names)
+
         if transform is None:
             self.transform = transforms.ToTensor()
         else:

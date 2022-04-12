@@ -30,6 +30,7 @@ class VanDataset(Dataset):
         # load images
         self.image_names = []
         self.classification_type = classification_type
+        self.ratio = []
 
         if self.classification_type == 'full' or self.classification_type == 'cancer':
             # 4 class classification, or classify benign vs cancer
@@ -50,6 +51,26 @@ class VanDataset(Dataset):
                 img_names = list(filter(lambda x:int(x[-5]) != 0 and int(x[-5]) != 6 and int(x[-5]) != 1, img_names))
                 image_files = [os.path.join(slide_name, img) for img in img_names]
                 self.image_names += image_files
+        
+        # get ratio of the class
+        if self.classification_type == 'full':
+            self.ratio = np.zeros(4)
+            for img_file in self.image_names:
+                label = int(VANCOUVER_CLASS_INDEXES_MAPPING[img_file[-5]])
+                self.ratio[label] += 1
+        elif self.classification_type == 'cancer':
+            self.ratio = np.zeros(2)
+            for idx, _ in enumerate(self.image_names):
+                label = int(VANCOUVER_CLASS_INDEXES_MAPPING[self.image_names[idx][-5]])
+                label = 0 if label == 0 else 1
+                self.ratio[label] += 1
+        elif self.classification_type == 'grade':
+            for idx, _ in enumerate(self.image_names):
+                label = int(VANCOUVER_CLASS_INDEXES_MAPPING[self.image_names[idx][-5]])
+                label = 0 if (label == 1) else 1
+                self.ratio[label] += 1
+        self.ratio = 1 / (self.ratio + 1) ## avoid divided by zero 
+        self.ratio /= np.sum(self.ratio)
 
         if transform is None:
             self.transform = transforms.ToTensor()

@@ -72,3 +72,11 @@ def patch_metrics(patch_info, num_classes):
     'acc_per_subtype': acc_per_subtype}
     # TODO: slides patch
     return patch_perf
+
+
+if __name__ == '__main__':
+    dataloader = get_source_dataloader('../data/VPC-10X', [1, 2, 3], 8, 'full')
+    print(dataloader.dataset.ratio)
+
+    dataloader = get_target_dataloader('../data/Colorado-10X', [1], 8, 'full')
+    print(dataloader.dataset.ratio)
