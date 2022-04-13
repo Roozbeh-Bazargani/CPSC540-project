@@ -26,6 +26,7 @@ class SimpleDANNTrain(object):
         """
         self.cfg = cfg
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        
         self.writer = SummaryWriter(log_dir=cfg['tensorboard_dir'])
 
         if not os.path.exists(self.cfg["checkpoints"]):
@@ -68,7 +69,8 @@ class SimpleDANNTrain(object):
 
         # setup scheduler
         if self.cfg['use_schedular']:
-            self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=0.8)
+            # self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=0.8)
+            self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=5, gamma=0.8)
 
 
     def forward(self, data, alpha):
@@ -430,8 +432,8 @@ class SimpleDANNTrain(object):
     def run(self):
         if not self.cfg['only_test']:
             self.train()
-        # self.test('source')
-        # self.test('target')
+        self.test('source')
+        self.test('target')
 
 
 def get_colorado_slice(path):
@@ -459,29 +461,29 @@ if __name__ == '__main__':
     'saved_model_path': None,  # path of pretrained model
     'model_name': 'resnet34', # resnet34 or resnet18
     'feature_block': 4, # select the feature layer that is sent to the domain discriminator, int from 1 ~ 4
-    'classification_type': 'full', # classify all, or benign vs cancer, or low grade vs high grade. String: 'full', 'cancer' or 'grade'
+    'classification_type': 'grade', # classify all, or benign vs cancer, or low grade vs high grade. String: 'full', 'cancer' or 'grade'
     'use_weighted_loss': True,
-    'optimizer': 'Adam',  # name of optimizer
-    'lr': 0.00001,  # learning rate
+    'optimizer': 'SGD',  # name of optimizer
+    'lr': 0.001,  # learning rate
     'momentum': 0, # momentum for SGD
-    'wd': 0.0005,  # weight decay
-    'use_schedular': False,  # bool to select whether to use scheduler
+    'wd': 0.000,  # weight decay
+    'use_schedular': True,  # bool to select whether to use scheduler
     'use_earlystopping': True,
-    'earlystopping_epoch': 10, # early stop the training if no improvement on validation for this number of epochs
+    'earlystopping_epoch': 20, # early stop the training if no improvement on validation for this number of epochs
     'epochs': 500,  # number of training epochs
     'source_dataset': '/workspace/CPSC540/data/VPC-10X',   # path to vancouver dataset
     'source_train_idx': [2,5,6,7],   # indexes of the slides used for training (van dataset)
     'source_val_idx': [3],   # indexes of the slides used for validation (van dataset)
     'source_test_idx': [1],   # indexes of the slides used for testing (van dataset)
     'batch_size': 16,  # batch size
-    'augment': False,  # whether use classical cv augmentation
+    'augment': True,  # whether use classical cv augmentation
     'target_dataset': '/workspace/CPSC540/data/Colorado-10X',  # path to Colorado dataset
     'target_train_idx': [0, 2, 3, 4, 5, 6, 94],  # indexes of the slides used for training (CO dataset)
     'target_val_idx': [96, 98],
     'target_test_idx': [1, 97, 99],  # indexes of the slides used for testing (CO dataset)
     'num_workers': 1, # number of workers
     'val_criteria': 'val_loss',  # criteria to keep the current best model, can be overall_acc, overall_f1, overall_auc, val_loss
-    'checkpoints': '/workspace/CPSC540/DANN_full_resnet34_block4_adam',  # dir to save the best model, training configurations and results
+    'checkpoints': '/workspace/CPSC540/DANN_cancer_resnet34_block4_wsa_sgd',  # dir to save the best model, training configurations and results
     'only_test': False  # select true if only want to do testing
 
     }

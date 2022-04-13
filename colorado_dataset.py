@@ -69,6 +69,7 @@ class CODataset(Dataset):
                 l = 0 if label == 0 else 1
                 self.ratio[l] += 1
         elif self.classification_type == 'grade':
+            self.ratio = np.zeros(2)
             for label in self.labels:
                 l = 0 if (label == 1) else 1
                 self.ratio[l] += 1

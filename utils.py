@@ -18,7 +18,7 @@ def get_source_dataloader(dataset_path, slides, batch_size, classification_type,
     if augment:
         dataset = VanDataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, transform=AUGMENTED_TRANSFORM)
     else:
-        dataset = VanDataset(root_folder=dataset_path, slide_indexs=slides)
+        dataset = VanDataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type)
     # print("length of dataset %d\n" % dataset.__len__())
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, drop_last=False) 
     return dataloader
@@ -27,7 +27,7 @@ def get_target_dataloader(dataset_path, slides, batch_size, classification_type,
     if augment:
         dataset = CODataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, transform=AUGMENTED_TRANSFORM)
     else:
-        dataset = CODataset(root_folder=dataset_path, slide_indexs=slides)
+        dataset = CODataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type)
     # print("length of dataset %d\n" % dataset.__len__())
 
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, drop_last=False) 

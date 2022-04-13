@@ -65,6 +65,7 @@ class VanDataset(Dataset):
                 label = 0 if label == 0 else 1
                 self.ratio[label] += 1
         elif self.classification_type == 'grade':
+            self.ratio = np.zeros(2)
             for idx, _ in enumerate(self.image_names):
                 label = int(VANCOUVER_CLASS_INDEXES_MAPPING[self.image_names[idx][-5]])
                 label = 0 if (label == 1) else 1
