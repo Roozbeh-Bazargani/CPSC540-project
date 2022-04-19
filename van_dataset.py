@@ -37,6 +37,7 @@ class VanDataset(Dataset):
             for idx in slide_indexs:
                 slide_name = van_prefix(idx)
                 img_names = os.listdir(os.path.join(self.root_folder, slide_name))
+                img_names = list(filter(lambda x:x[-5] != ')', img_names))
                 
                 img_names = list(filter(lambda x:int(x[-5]) != 0 and int(x[-5]) != 6, img_names))
                 image_files = [os.path.join(slide_name, img) for img in img_names]
@@ -47,6 +48,7 @@ class VanDataset(Dataset):
             for idx in slide_indexs:
                 slide_name = van_prefix(idx)
                 img_names = os.listdir(os.path.join(self.root_folder, slide_name))
+                img_names = list(filter(lambda x:x[-5] != ')', img_names))
                 
                 img_names = list(filter(lambda x:int(x[-5]) != 0 and int(x[-5]) != 6 and int(x[-5]) != 1, img_names))
                 image_files = [os.path.join(slide_name, img) for img in img_names]
