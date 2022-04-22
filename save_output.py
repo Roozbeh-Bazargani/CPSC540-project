@@ -12,7 +12,8 @@ from utils import *
 from models import DANN
 import torch.nn.functional as F
 from sklearn.metrics import roc_auc_score
-
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
 
 NUMBER_OF_CLASSES = {'full': 4, 'cancer': 2, 'grade': 2}
 
@@ -100,7 +101,75 @@ class SimpleDANNTest(object):
         np.save(os.path.join('/workspace/CPSC540/resnet18/test_results', dataset + '_pred_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.npy'), save_predict)
 
         print(roc_auc_score(save_labels, save_predict,multi_class='ovr'))
+
         return save_labels, save_predict
+    
+    def get_testset_feature(self, dataset):
+        """test the model by printing all the metrics for each saved model
+        """
+        print(f"\nStart SimpleTrain testing on {dataset} dataset.")
+        if dataset == 'source':
+            test_dataloader = get_source_dataloader(self.cfg['source_dataset'], slides=self.cfg['source_test_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
+        elif dataset == 'target':
+            test_dataloader = get_target_dataloader(self.cfg['target_dataset'], slides=self.cfg['target_test_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
+        
+        # load best model
+        path = os.path.join(self.cfg["checkpoints"], f"model_{self.cfg['val_criteria']}.pth")
+        state = torch.load(path, map_location=self.device)
+        if isinstance(self.model, nn.DataParallel):
+            self.model.module.load_state_dict(state["model"], strict=True)
+        else:
+            self.model.load_state_dict(state["model"], strict=True)
+
+
+        # get the last layer feature
+        self.model.eval()
+        save_feature = []
+        save_label = []
+        txt = 'Test : '
+        with torch.no_grad():
+            prefix = txt
+            for batch_data in tqdm(test_dataloader, desc=prefix,
+                    dynamic_ncols=True, leave=True, position=0):
+                # load data
+                data = batch_data['image']
+                data  = data.cuda() if torch.cuda.is_available() else data
+                feature_C, _ = self.model.get_feature(data, 0)
+                save_feature.append(feature_C.to('cpu').detach().numpy())
+                save_label.append(batch_data['label'].detach().numpy())
+
+                del data
+                del feature_C
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+        # concatenate
+        save_feature = np.concatenate(save_feature)
+        save_feature = np.squeeze(save_feature, 2)
+        save_feature = np.squeeze(save_feature, 2)
+        save_label = np.concatenate(save_label)
+        print(save_feature.shape)
+        return save_feature, save_label
+
+    def plot_tSNE(self):
+        source_feature, source_label = self.get_testset_feature('source')
+        target_feature, target_label = self.get_testset_feature('target')
+
+        # do tsne
+        tsne = TSNE(n_components=2)
+        tsne_results = tsne.fit_transform(np.vstack((source_feature, target_feature)))
+        print("t-SNE done!")
+
+        # plot tsne
+        tsne_source = tsne_results[:source_feature.shape[0], :]
+        tsne_target = tsne_results[source_feature.shape[0]:, :]
+        plt.figure()
+        color = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
+        for i in range(self.cfg['num_classes']):
+            plt.scatter(tsne_source[source_label == i, 0], tsne_source[source_label == i, 1], c=color[i], marker='+')
+            plt.scatter(tsne_target[target_label == i, 0], tsne_target[target_label == i, 1], c=color[i], marker='x')
+        plt.savefig(os.path.join('/workspace/CPSC540/resnet18/test_results/images', 'pred_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.png'))
+
     def run(self):
         self.test('source')
         self.test('target')
@@ -129,7 +198,7 @@ if __name__ == '__main__':
     # sample config file for the training class
     cfg = {
     'model_name': 'resnet18', # resnet34 or resnet18
-    'feature_block': 4, # select the feature layer that is sent to the domain discriminator, int from 1 ~ 4
+    'feature_block': 1, # select the feature layer that is sent to the domain discriminator, int from 1 ~ 4
     'classification_type': 'full', # classify all, or benign vs cancer, or low grade vs high grade. String: 'full', 'cancer' or 'grade'
     'use_weighted_loss': True,
     'optimizer': 'Adam',  # name of optimizer
@@ -153,7 +222,7 @@ if __name__ == '__main__':
     'num_workers': 1, # number of workers
 
     'val_criteria': 'val_loss', 
-    'checkpoints': '/workspace/CPSC540/resnet18/DANN_full_resnet18_block4_ws',  # dir to save the best model, training configurations and results
+    'checkpoints': '/workspace/CPSC540/resnet18/DANN_full_resnet18_block1_ws',  # dir to save the best model, training configurations and results
 
     }
 
@@ -162,4 +231,4 @@ if __name__ == '__main__':
     # init trainer
     trainer = SimpleDANNTest(cfg)
     # run trainer
-    trainer.run()
+    trainer.plot_tSNE()

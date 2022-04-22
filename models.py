@@ -127,7 +127,18 @@ class DANN(nn.Module):
         domain_output = self.domain_classifier(feat_D)
         
         return class_output, domain_output
+    
+    def get_feature(self, input_data, alpha=0):
+        input_data = input_data.expand(input_data.data.shape[0], input_data.data.shape[1], 
+                                       input_data.data.shape[2], input_data.data.shape[3])
 
+
+        feature = self.feat(input_data)
+        feat_C = self.class_classifier_1(feature)
+        
+        return feat_C, feature
+
+        
 if __name__ == "__main__":
 
     model = DANN('resnet18', 4, 4)
