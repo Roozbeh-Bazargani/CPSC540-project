@@ -14,23 +14,48 @@ import torch.nn.functional as F
 from sklearn.metrics import roc_auc_score
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
+import torchvision
 
 NUMBER_OF_CLASSES = {'full': 4, 'cancer': 2, 'grade': 2}
 
 
-class SimpleDANNTest(object):
+class NN(torch.nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        # self.num_classes = num_classes
+        self.model = torchvision.models.resnet18(pretrained=True)
+        self.model.fc = nn.Sequential(nn.Linear(in_features=512, out_features=num_classes, bias=True, ))#,
+                        #  nn.ReLU(),
+                        #  nn.Linear(in_features=1000, out_features=num_classes, bias=True))
+        # print(self.model)
+
+    def forward(self, dictionary):
+      return {'label': self.model(dictionary['img'])}
+
+    
+    def get_feature_extractor(self):
+        self.feature_extractor = nn.Sequential(*list(self.model.children())[:-1])
+    
+    def get_feature(self, image):
+        return self.feature_extractor(image)
+
+    def prediction(self, dictionary):
+        return {'label': torch.argmax(self.forward(dictionary)['label'], dim=1)}
+
+
+class SimpleNNTest(object):
     def __init__(self, cfg):
         """
         Initialize the configuration
         """
         self.cfg = cfg
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        
-        if not os.path.exists(self.cfg["checkpoints"]):
-            os.mkdir(self.cfg["checkpoints"])
 
         # build model
-        self.model = DANN(model_name=cfg['model_name'], num_classes=cfg['num_classes'], feature_block=cfg['feature_block'])
+        self.model = NN(num_classes=self.cfg['num_classes'])
+        checkpoint = torch.load(self.cfg['checkpoints'])
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.model.get_feature_extractor()
         self.model.to(self.device)
 
         # multiple GPU
@@ -39,70 +64,12 @@ class SimpleDANNTest(object):
             self.model = nn.DataParallel(self.model)
 
 
-    def forward(self, data, alpha):
-        class_pred, domain_pred = self.model.forward(data, alpha)
-        class_prob   = torch.softmax(class_pred, dim=1)
-        domain_prob  = torch.softmax(domain_pred, dim=1)
-        return class_pred, class_prob, domain_pred, domain_prob
+    # def forward(self, data, alpha):
+    #     class_pred, domain_pred = self.model.forward(data, alpha)
+    #     class_prob   = torch.softmax(class_pred, dim=1)
+    #     domain_prob  = torch.softmax(domain_pred, dim=1)
+    #     return class_pred, class_prob, domain_pred, domain_prob
 
-
-    def test(self, dataset='source'):
-        """test the model by printing all the metrics for each saved model
-        """
-        print(f"\nStart SimpleTrain testing on {dataset} dataset.")
-        if dataset == 'source':
-            test_dataloader = get_source_dataloader(self.cfg['source_dataset'], slides=self.cfg['source_test_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
-        elif dataset == 'target':
-            test_dataloader = get_target_dataloader(self.cfg['target_dataset'], slides=self.cfg['target_test_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
-        
-        # load best model
-        path = os.path.join(self.cfg["checkpoints"], f"model_{self.cfg['val_criteria']}.pth")
-        state = torch.load(path, map_location=self.device)
-        if isinstance(self.model, nn.DataParallel):
-            self.model.module.load_state_dict(state["model"], strict=True)
-        else:
-            self.model.load_state_dict(state["model"], strict=True)
-
-
-        # run test on dataset
-        self.model.eval()
-        save_labels = []
-        save_predict = []
-        txt = 'Test : '
-        with torch.no_grad():
-            prefix = txt
-            for batch_data in tqdm(test_dataloader, desc=prefix,
-                    dynamic_ncols=True, leave=True, position=0):
-                # load data
-                data = batch_data['image']
-                label = batch_data['label']
-                data  = data.cuda() if torch.cuda.is_available() else data
-                label = label.cuda() if torch.cuda.is_available() else label
-                predicted, prob, _, _ = self.forward(data, 0)
-                save_labels.append(label.to('cpu').detach().numpy())
-
-                prediction = prob.to('cpu').detach().numpy()
-                # prediction = np.argmax(prediction, axis=1)
-                save_predict.append(prediction)
-                # clean cache
-                del data
-                del label
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-
-
-        # concatenate
-        save_labels = np.concatenate(save_labels)
-        save_predict = np.vstack(save_predict)
-        print(save_labels.shape)
-        print(save_predict.shape)
-
-        np.save(os.path.join('/workspace/CPSC540/resnet18/test_results', dataset + '_label_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.npy'), save_labels)
-        np.save(os.path.join('/workspace/CPSC540/resnet18/test_results', dataset + '_pred_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.npy'), save_predict)
-
-        print(roc_auc_score(save_labels, save_predict,multi_class='ovr'))
-
-        return save_labels, save_predict
     
     def get_testset_feature(self, dataset):
         """test the model by printing all the metrics for each saved model
@@ -113,15 +80,6 @@ class SimpleDANNTest(object):
         elif dataset == 'target':
             test_dataloader = get_target_dataloader(self.cfg['target_dataset'], slides=self.cfg['target_test_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
         
-        # load best model
-        path = os.path.join(self.cfg["checkpoints"], f"model_{self.cfg['val_criteria']}.pth")
-        state = torch.load(path, map_location=self.device)
-        if isinstance(self.model, nn.DataParallel):
-            self.model.module.load_state_dict(state["model"], strict=True)
-        else:
-            self.model.load_state_dict(state["model"], strict=True)
-
-
         # get the last layer feature
         self.model.eval()
         save_feature = []
@@ -134,7 +92,7 @@ class SimpleDANNTest(object):
                 # load data
                 data = batch_data['image']
                 data  = data.cuda() if torch.cuda.is_available() else data
-                feature_C, _ = self.model.get_feature(data, 0)
+                feature_C = self.model.get_feature(data)
                 save_feature.append(feature_C.to('cpu').detach().numpy())
                 save_label.append(batch_data['label'].detach().numpy())
 
@@ -156,7 +114,7 @@ class SimpleDANNTest(object):
         target_feature, target_label = self.get_testset_feature('target')
 
         # do tsne
-        tsne = TSNE(n_components=2, perplexity=50)
+        tsne = TSNE(n_components=2, perplexity=30)
         tsne_results = tsne.fit_transform(np.vstack((source_feature, target_feature)))
         print("t-SNE done!")
 
@@ -168,7 +126,11 @@ class SimpleDANNTest(object):
         for i in range(self.cfg['num_classes']):
             plt.scatter(tsne_source[source_label == i, 0], tsne_source[source_label == i, 1], c=color[i], marker='+')
             plt.scatter(tsne_target[target_label == i, 0], tsne_target[target_label == i, 1], c=color[i], marker='x')
-        plt.savefig(os.path.join('/workspace/CPSC540/resnet18/test_results/images', 'pred_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.png'))
+        
+        model_name = self.cfg['checkpoints']
+        model_name = os.path.split(model_name)
+        model_name = model_name[1]
+        plt.savefig(os.path.join('/workspace/CPSC540/resnet18/test_results/images', model_name + '.png'))
 
     def run(self):
         self.test('source')
@@ -189,16 +151,9 @@ def get_colorado_slice(path):
 
 
 if __name__ == '__main__':
-    # example config file
-    # slices = get_colorado_slice('../data/Colorado-10X')
-    # print("slice numbers for Colorado dataset:")
-    # print(slices)
-    # slice = [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99]
-
     # sample config file for the training class
     cfg = {
     'model_name': 'resnet18', # resnet34 or resnet18
-    'feature_block': 4, # select the feature layer that is sent to the domain discriminator, int from 1 ~ 4
     'classification_type': 'full', # classify all, or benign vs cancer, or low grade vs high grade. String: 'full', 'cancer' or 'grade'
     'use_weighted_loss': True,
     'optimizer': 'Adam',  # name of optimizer
@@ -222,13 +177,13 @@ if __name__ == '__main__':
     'num_workers': 1, # number of workers
 
     'val_criteria': 'val_loss', 
-    'checkpoints': '/workspace/CPSC540/resnet18/DANN_full_resnet18_block4_ws',  # dir to save the best model, training configurations and results
+    'checkpoints': '/workspace/CPSC540/resnet18/baseline_model/baseline_model_original_balanced',  # dir to save the best model, training configurations and results
 
     }
 
     cfg['num_classes'] = NUMBER_OF_CLASSES[cfg['classification_type']]
 
     # init trainer
-    trainer = SimpleDANNTest(cfg)
+    trainer = SimpleNNTest(cfg)
     # run trainer
     trainer.plot_tSNE()
