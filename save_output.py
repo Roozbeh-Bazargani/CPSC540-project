@@ -174,6 +174,63 @@ class SimpleDANNTest(object):
         self.test('source')
         self.test('target')
 
+    def discriminator_acc(self, dataset):
+        print(f"\nStart SimpleTrain testing on {dataset} dataset.")
+        if dataset == 'source':
+            test_dataloader = get_source_dataloader(self.cfg['source_dataset'], slides=self.cfg['source_train_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
+        elif dataset == 'target':
+            test_dataloader = get_target_dataloader(self.cfg['target_dataset'], slides=self.cfg['target_train_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
+        # load best model
+        path = os.path.join(self.cfg["checkpoints"], f"model_{self.cfg['val_criteria']}.pth")
+        state = torch.load(path, map_location=self.device)
+        if isinstance(self.model, nn.DataParallel):
+            self.model.module.load_state_dict(state["model"], strict=True)
+        else:
+            self.model.load_state_dict(state["model"], strict=True)
+
+        predict_domain = []
+        self.model.eval()
+        txt = 'Test : '
+        with torch.no_grad():
+            prefix = txt
+            for batch_data in tqdm(test_dataloader, desc=prefix,
+                    dynamic_ncols=True, leave=True, position=0):
+                # load data
+                data = batch_data['image']
+                data  = data.cuda() if torch.cuda.is_available() else data
+                _, _, domain_pred, domain_prob = self.forward(data, 0)
+                domain_pred = domain_pred.to('cpu').detach().numpy()
+                domain_pred = np.argmax(domain_pred, axis=1)
+                predict_domain.append(domain_pred)
+
+                del data
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+        # concatenate
+        predict_domain = np.concatenate(predict_domain)
+        true_domain = np.zeros(predict_domain.shape)
+        if dataset == 'source':
+            true_domain = np.zeros(predict_domain.shape)
+        else:
+            true_domain = np.ones(predict_domain.shape)
+        return predict_domain, true_domain
+
+
+
+    def get_discriminator_acc(self):
+        """test the model by printing all the metrics for each saved model
+        """
+
+        s_pred, s_true = self.discriminator_acc('source')
+        t_pred, t_true = self.discriminator_acc('target')
+
+        pred = np.concatenate((s_pred, t_pred))
+        label = np.concatenate((s_true, t_true))
+        acc = np.sum(pred == label) / label.shape[0]
+        print(acc)
+        
+
 
 def get_colorado_slice(path):
     """
@@ -231,4 +288,5 @@ if __name__ == '__main__':
     # init trainer
     trainer = SimpleDANNTest(cfg)
     # run trainer
-    trainer.plot_tSNE()
+    # trainer.plot_tSNE()
+    trainer.get_discriminator_acc()

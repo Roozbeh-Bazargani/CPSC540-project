@@ -114,16 +114,14 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     root_folder = '../data/Colorado-10X'
-    dataset = CODataset(root_folder, slide_indexs=[96], classification_type='grade')
+    dataset = CODataset(root_folder, slide_indexs=[0, 2, 3, 4, 5, 6, 94], classification_type='grade')
 
-    data = dataset.__getitem__(1)
+    print(dataset.__len__())
 
-    fig, axes = plt.subplots()
+    dataset = CODataset(root_folder, slide_indexs=[96, 98], classification_type='grade')
 
-    image = data['image']
-    print(image.shape)
-    plt.imshow(image.permute(1, 2, 0))
-    label = data['label']
-    print(label)
+    print(dataset.__len__())
 
-    plt.show()
+    dataset = CODataset(root_folder, slide_indexs= [1, 97, 99],  classification_type='grade')
+
+    print(dataset.__len__())

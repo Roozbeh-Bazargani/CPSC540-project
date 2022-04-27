@@ -113,16 +113,14 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     root_folder = '../data/VPC-10X'
-    dataset = VanDataset(root_folder, slide_indexs=[1,2,3], classification_type='grade')
+    dataset = VanDataset(root_folder, slide_indexs=[2,5,6,7], classification_type='grade')
 
-    data = dataset.__getitem__(10)
+    print(dataset.__len__())
 
-    fig, axes = plt.subplots()
+    dataset = VanDataset(root_folder, slide_indexs=[3], classification_type='grade')
 
-    image = data['image']
-    print(image.shape)
-    plt.imshow(image.permute(1, 2, 0))
-    label = data['label']
-    print(label)
+    print(dataset.__len__())
 
-    plt.show()
+    dataset = VanDataset(root_folder, slide_indexs=[1], classification_type='grade')
+
+    print(dataset.__len__())
