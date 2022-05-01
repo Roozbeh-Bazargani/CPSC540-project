@@ -97,8 +97,8 @@ class SimpleDANNTest(object):
         print(save_labels.shape)
         print(save_predict.shape)
 
-        np.save(os.path.join('/workspace/CPSC540/resnet18/test_results', dataset + '_label_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.npy'), save_labels)
-        np.save(os.path.join('/workspace/CPSC540/resnet18/test_results', dataset + '_pred_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.npy'), save_predict)
+        np.save(os.path.join(self.cfg["checkpoints"] + '/test_results', dataset + '_label_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.npy'), save_labels)
+        np.save(os.path.join(self.cfg["checkpoints"] + '/test_results', dataset + '_pred_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.npy'), save_predict)
 
         print(roc_auc_score(save_labels, save_predict,multi_class='ovr'))
 
@@ -168,7 +168,7 @@ class SimpleDANNTest(object):
         for i in range(self.cfg['num_classes']):
             plt.scatter(tsne_source[source_label == i, 0], tsne_source[source_label == i, 1], c=color[i], marker='+')
             plt.scatter(tsne_target[target_label == i, 0], tsne_target[target_label == i, 1], c=color[i], marker='x')
-        plt.savefig(os.path.join('/workspace/CPSC540/resnet18/test_results/images', 'pred_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.png'))
+        plt.savefig(os.path.join(self.cfg["checkpoints"] + '/test_results/images', 'pred_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.png'))
 
     def run(self):
         self.test('source')
@@ -255,7 +255,7 @@ if __name__ == '__main__':
     # sample config file for the training class
     cfg = {
     'model_name': 'resnet18', # resnet34 or resnet18
-    'feature_block': 4, # select the feature layer that is sent to the domain discriminator, int from 1 ~ 4
+    'feature_block': 3, # select the feature layer that is sent to the domain discriminator, int from 1 ~ 4
     'classification_type': 'full', # classify all, or benign vs cancer, or low grade vs high grade. String: 'full', 'cancer' or 'grade'
     'use_weighted_loss': True,
     'optimizer': 'Adam',  # name of optimizer
@@ -266,20 +266,22 @@ if __name__ == '__main__':
     'use_earlystopping': True,
     'earlystopping_epoch': 10, # early stop the training if no improvement on validation for this number of epochs
     'epochs': 500,  # number of training epochs
-    'source_dataset': '/workspace/CPSC540/data/VPC-10X',   # path to vancouver dataset
+    'source_dataset': '../../data/VPC-10X',   # path to vancouver dataset
     'source_train_idx': [2,5,6,7],   # indexes of the slides used for training (van dataset)
     'source_val_idx': [3],   # indexes of the slides used for validation (van dataset)
     'source_test_idx': [1],   # indexes of the slides used for testing (van dataset)
     'batch_size': 16,  # batch size
     'augment': False,  # whether use classical cv augmentation
-    'target_dataset': '/workspace/CPSC540/data/Colorado-10X',  # path to Colorado dataset
-    'target_train_idx': [0, 2, 3, 4, 5, 6, 94],  # indexes of the slides used for training (CO dataset)
+    'target_dataset': '../../data/Colorado-10X',  # path to Colorado dataset
+    # 'target_train_idx': [0, 2, 3, 4, 5, 6, 94],  # indexes of the slides used for training (CO dataset)
+    'target_train_idx': [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99],  # indexes of the slides used for training (CO dataset)
     'target_val_idx': [96, 98],
-    'target_test_idx': [1, 97, 99],  # indexes of the slides used for testing (CO dataset)
+    #'target_test_idx': [1, 97, 99],  # indexes of the slides used for testing (CO dataset)
+    'target_test_idx': [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99],  # indexes of the slides used for testing (CO dataset)
     'num_workers': 1, # number of workers
 
     'val_criteria': 'val_loss', 
-    'checkpoints': '/workspace/CPSC540/resnet18/DANN_full_resnet18_block4_ws',  # dir to save the best model, training configurations and results
+    'checkpoints': '../../CPSC540/DANN_grade_resnet18_block3_ws',  # dir to save the best model, training configurations and results
 
     }
 
@@ -289,4 +291,5 @@ if __name__ == '__main__':
     trainer = SimpleDANNTest(cfg)
     # run trainer
     # trainer.plot_tSNE()
-    trainer.get_discriminator_acc()
+    # trainer.get_discriminator_acc()
+    trainer.run()

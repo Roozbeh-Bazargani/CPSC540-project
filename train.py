@@ -53,7 +53,7 @@ class SimpleDANNTrain(object):
             weights = torch.FloatTensor(dataloader.dataset.ratio).to(self.device)
             self.criterion = torch.nn.CrossEntropyLoss(weight=weights)
             self.criterion_domain = torch.nn.CrossEntropyLoss()
-            self.criterion = torch.nn.CrossEntropyLoss(weight=None)
+            # self.criterion = torch.nn.CrossEntropyLoss(weight=None)
         else:
             self.criterion = torch.nn.CrossEntropyLoss()
         self.criterion_domain = torch.nn.CrossEntropyLoss()
@@ -406,6 +406,7 @@ class SimpleDANNTrain(object):
         
         # load best model
         path = os.path.join(self.cfg["checkpoints"], f"model_{self.cfg['val_criteria']}.pth")
+        print('hey', os.listdir('../../'))
         state = torch.load(path, map_location=self.device)
         if isinstance(self.model, nn.DataParallel):
             self.model.module.load_state_dict(state["model"], strict=True)
@@ -457,11 +458,11 @@ if __name__ == '__main__':
     # slice = [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99]
 
     # sample config file for the training class
-    cfg = {'tensorboard_dir': '/workspace/CPSC540/resnet18/DANN_grade_resnet18_block1_ws/tensorboard_log', # dir to save tensorboard
+    cfg = {'tensorboard_dir': '../../CPSC540/DANN_grade_resnet18_block3_ws/tensorboard_log', # dir to save tensorboard
     'saved_model_path': None,  # path of pretrained model
     'model_name': 'resnet18', # resnet34 or resnet18
-    'feature_block': 1, # select the feature layer that is sent to the domain discriminator, int from 1 ~ 4
-    'classification_type': 'grade', # classify all, or benign vs cancer, or low grade vs high grade. String: 'full', 'cancer' or 'grade'
+    'feature_block': 3, # select the feature layer that is sent to the domain discriminator, int from 1 ~ 4
+    'classification_type': 'full', # classify all, or benign vs cancer, or low grade vs high grade. String: 'full', 'cancer' or 'grade'
     'use_weighted_loss': True,
     'optimizer': 'Adam',  # name of optimizer
     'lr': 0.00001,  # learning rate
@@ -471,19 +472,21 @@ if __name__ == '__main__':
     'use_earlystopping': True,
     'earlystopping_epoch': 10, # early stop the training if no improvement on validation for this number of epochs
     'epochs': 500,  # number of training epochs
-    'source_dataset': '/workspace/CPSC540/data/VPC-10X',   # path to vancouver dataset
+    'source_dataset': '../../data/VPC-10X',   # path to vancouver dataset
     'source_train_idx': [2,5,6,7],   # indexes of the slides used for training (van dataset)
     'source_val_idx': [3],   # indexes of the slides used for validation (van dataset)
     'source_test_idx': [1],   # indexes of the slides used for testing (van dataset)
     'batch_size': 16,  # batch size
     'augment': False,  # whether use classical cv augmentation
-    'target_dataset': '/workspace/CPSC540/data/Colorado-10X',  # path to Colorado dataset
-    'target_train_idx': [0, 2, 3, 4, 5, 6, 94],  # indexes of the slides used for training (CO dataset)
+    'target_dataset': '../../data/Colorado-10X',  # path to Colorado dataset
+    # 'target_train_idx': [0, 2, 3, 4, 5, 6, 94],  # indexes of the slides used for training (CO dataset)
+    'target_train_idx': [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99],  # indexes of the slides used for training (CO dataset)
     'target_val_idx': [96, 98],
-    'target_test_idx': [1, 97, 99],  # indexes of the slides used for testing (CO dataset)
+    #'target_test_idx': [1, 97, 99],  # indexes of the slides used for testing (CO dataset)
+    'target_test_idx': [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99],  # indexes of the slides used for testing (CO dataset)
     'num_workers': 1, # number of workers
     'val_criteria': 'val_loss',  # criteria to keep the current best model, can be overall_acc, overall_f1, overall_auc, val_loss
-    'checkpoints': '/workspace/CPSC540/resnet18/DANN_grade_resnet18_block1_ws',  # dir to save the best model, training configurations and results
+    'checkpoints': '../../CPSC540/DANN_grade_resnet18_block3_ws',  # dir to save the best model, training configurations and results
     'only_test': False  # select true if only want to do testing
 
     }

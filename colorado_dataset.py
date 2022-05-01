@@ -8,7 +8,7 @@ from skimage import io
 import numpy as np
 import torch
 
-COLORADO_CLASS_INDEXES_MAPPING = {'A': 0, 'AI': 0, 'B': 1, 'C': 2, 'F': 2, 'H': 0, 'I': 3, 'P': 2, 'S': 1, 'T': 2}
+COLORADO_CLASS_INDEXES_MAPPING = {'A': 0, 'AI': 0, 'B': 1, 'C': 2, 'F': 2, 'H': 0, 'I': 3, 'P': 2, 'S': 1, 'T': 2, 'M': 1, 'SC': 2}
 
 class CODataset(Dataset):
 
