@@ -53,7 +53,18 @@ class CODataset(Dataset):
                 for s in slide_folders:
                     for image_size in ['512']:
                         for core in ['10']:
-                            
+                            image_files = [os.path.join(idx, s, image_size, core, f) for f in os.listdir(os.path.join(root_folder, idx, s, image_size, core))]
+                            self.image_names += image_files
+                            self.labels += [COLORADO_CLASS_INDEXES_MAPPING[idx]] * len(image_files)
+        elif self.classification_type == 'three_class':
+            # classify benign vs low grade vs high grade
+            for idx in self.label_idxes:
+                slide_folders = os.listdir(os.path.join(self.root_folder, str(idx)))
+                slide_folders = list(filter(lambda x:int(x[1:3]) in slide_indexs, slide_folders))
+                image_files = []
+                for s in slide_folders:
+                    for image_size in ['512']:
+                        for core in ['10']:
                             image_files = [os.path.join(idx, s, image_size, core, f) for f in os.listdir(os.path.join(root_folder, idx, s, image_size, core))]
                             self.image_names += image_files
                             self.labels += [COLORADO_CLASS_INDEXES_MAPPING[idx]] * len(image_files)
@@ -73,7 +84,12 @@ class CODataset(Dataset):
             for label in self.labels:
                 l = 0 if (label == 1) else 1
                 self.ratio[l] += 1
-        
+        elif self.classification_type == 'three_class':
+            self.ratio = np.zeros(3)
+            for label in self.labels:
+                l = 2 if (label == 3) else label
+                self.ratio[l] += 1
+
         self.ratio = 1 / (self.ratio + 1) ## avoid divided by zero 
         self.ratio /= np.sum(self.ratio)
         
@@ -104,6 +120,8 @@ class CODataset(Dataset):
             label = 0 if label == 0 else 1
         elif self.classification_type == 'grade':
             label = 0 if (label == 1) else 1
+        elif self.classification_type == 'three_class':
+            label = 2 if (label == 3) else label
         
         return {'image': image.float(), 'label':label}  
 
@@ -114,14 +132,14 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     root_folder = '../data/Colorado-10X'
-    dataset = CODataset(root_folder, slide_indexs=[0, 2, 3, 4, 5, 6, 94], classification_type='grade')
+    dataset = CODataset(root_folder, slide_indexs=[0, 2, 3, 4, 5, 6, 94], classification_type='three_class')
 
     print(dataset.__len__())
 
-    dataset = CODataset(root_folder, slide_indexs=[96, 98], classification_type='grade')
+    # dataset = CODataset(root_folder, slide_indexs=[96, 98], classification_type='grade')
 
-    print(dataset.__len__())
+    # print(dataset.__len__())
 
-    dataset = CODataset(root_folder, slide_indexs= [1, 97, 99],  classification_type='grade')
+    # dataset = CODataset(root_folder, slide_indexs= [1, 97, 99],  classification_type='grade')
 
-    print(dataset.__len__())
+    # print(dataset.__len__())

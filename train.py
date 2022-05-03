@@ -11,12 +11,12 @@ from utils import *
 # from models import Model
 from models import DANN
 import torch.nn.functional as F
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, roc_auc_score
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 
-NUMBER_OF_CLASSES = {'full': 4, 'cancer': 2, 'grade': 2}
+NUMBER_OF_CLASSES = {'full': 4, 'cancer': 2, 'grade': 2, 'three_class': 3}
 
 
 class SimpleDANNTrain(object):
@@ -48,7 +48,7 @@ class SimpleDANNTrain(object):
 
         # setup training loss
         if self.cfg['use_weighted_loss']:
-            dataloader = get_source_dataloader(self.cfg['source_dataset'], self.cfg['source_train_idx'], self.cfg['batch_size'], self.cfg['classification_type'], augment=self.cfg['augment'], shuffle=True, num_workers=self.cfg['num_workers'])
+            dataloader = get_dataloader(self.cfg['source_dataset'], self.cfg['source_train_idx'], self.cfg['batch_size'], self.cfg['classification_type'], augment=self.cfg['augment'], shuffle=True, num_workers=self.cfg['num_workers'])
             print(f'Using weight loss with weights of {dataloader.dataset.ratio}\n')
             weights = torch.FloatTensor(dataloader.dataset.ratio).to(self.device)
             self.criterion = torch.nn.CrossEntropyLoss(weight=weights)
@@ -332,10 +332,10 @@ class SimpleDANNTrain(object):
         # save config file
         save_json(self.cfg, os.path.join(self.cfg["checkpoints"], 'training_config.json'))
         # get dataset
-        train_dataloader = get_source_dataloader(self.cfg['source_dataset'], self.cfg['source_train_idx'], self.cfg['batch_size'], self.cfg['classification_type'], augment=self.cfg['augment'], shuffle=True, num_workers=self.cfg['num_workers'])
-        valid_dataloader = get_source_dataloader(self.cfg['source_dataset'], self.cfg['source_val_idx'], self.cfg['batch_size'], self.cfg['classification_type'], augment=False, shuffle=False, num_workers=self.cfg['num_workers'])
-        target_train_dataloader = get_target_dataloader(self.cfg['target_dataset'], self.cfg['target_train_idx'],  self.cfg['batch_size'], self.cfg['classification_type'],  augment=self.cfg['augment'], shuffle=True, num_workers=self.cfg['num_workers'])
-        target_valid_dataloader = get_target_dataloader(self.cfg['target_dataset'], self.cfg['target_val_idx'],  self.cfg['batch_size'], self.cfg['classification_type'],  augment=False, shuffle=False, num_workers=self.cfg['num_workers'])
+        train_dataloader = get_dataloader(self.cfg['source_dataset'], self.cfg['source_train_idx'], self.cfg['batch_size'], self.cfg['classification_type'], augment=self.cfg['augment'], shuffle=True, num_workers=self.cfg['num_workers'])
+        valid_dataloader = get_dataloader(self.cfg['source_dataset'], self.cfg['source_val_idx'], self.cfg['batch_size'], self.cfg['classification_type'], augment=False, shuffle=False, num_workers=self.cfg['num_workers'])
+        target_train_dataloader = get_dataloader(self.cfg['target_dataset'], self.cfg['target_train_idx'],  self.cfg['batch_size'], self.cfg['classification_type'],  augment=self.cfg['augment'], shuffle=True, num_workers=self.cfg['num_workers'])
+        target_valid_dataloader = get_dataloader(self.cfg['target_dataset'], self.cfg['target_val_idx'],  self.cfg['batch_size'], self.cfg['classification_type'],  augment=False, shuffle=False, num_workers=self.cfg['num_workers'])
         
         if self.cfg['val_criteria'] == 'val_loss':
             best_criteria_value = np.inf
@@ -400,35 +400,80 @@ class SimpleDANNTrain(object):
         """
         print(f"\nStart SimpleTrain testing on {dataset} dataset.")
         if dataset == 'source':
-            test_dataloader = get_source_dataloader(self.cfg['source_dataset'], slides=self.cfg['source_test_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
+            test_dataloader = get_dataloader(self.cfg['source_dataset'], slides=self.cfg['source_test_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
         elif dataset == 'target':
-            test_dataloader = get_target_dataloader(self.cfg['target_dataset'], slides=self.cfg['target_test_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
+            test_dataloader = get_dataloader(self.cfg['target_dataset'], slides=self.cfg['target_test_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
         
         # load best model
         path = os.path.join(self.cfg["checkpoints"], f"model_{self.cfg['val_criteria']}.pth")
-        print('hey', os.listdir('../../'))
         state = torch.load(path, map_location=self.device)
         if isinstance(self.model, nn.DataParallel):
             self.model.module.load_state_dict(state["model"], strict=True)
         else:
             self.model.load_state_dict(state["model"], strict=True)
 
-        # run test on daaset
-        info = self.validate(test_dataloader, test=True)
-        test_perf = info['performance']
-        # save results
-        save_dict(info, f"{self.cfg['checkpoints']}/test_{dataset}_{self.cfg['val_criteria']}.pkl")
-        save_json(info['performance'], f"{self.cfg['checkpoints']}/test_{dataset}_{self.cfg['val_criteria']}.json")
+        # run test on dataset
+        self.model.eval()
+        save_labels = []
+        save_predict = []
+        loss_ = 0
+        patch_info = {'gt_label': [], 'prediction': [],
+                      'probability': np.array([]).reshape(0, self.cfg['num_classes'])}
 
+        txt = 'Test : '
+        with torch.no_grad():
+            prefix = txt
+            for batch_data in tqdm(test_dataloader, desc=prefix,
+                    dynamic_ncols=True, leave=True, position=0):
+                # load data
+                data = batch_data['image']
+                label = batch_data['label']
+                data  = data.cuda() if torch.cuda.is_available() else data
+                label = label.cuda() if torch.cuda.is_available() else label
+                predicted, prob, _, _ = self.forward(data, 0)
+                save_labels.append(label.to('cpu').detach().numpy())
+
+                prediction = prob.to('cpu').detach().numpy()
+                save_predict.append(prediction)
+                # save patch level results
+                patch_info['gt_label']   += label.cpu().numpy().tolist()
+                patch_info['prediction'] += torch.argmax(prob, dim=1).cpu().numpy().tolist()
+                patch_info['probability'] = np.vstack((patch_info['probability'],
+                                                       prob.cpu().numpy()))
+                # clean cache
+                del data
+                del label
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+        perf = patch_metrics(patch_info, self.cfg['num_classes'])
+        val_auc  = perf['overall_auc']
+        val_acc  = perf['overall_acc']
+        print(f"Test (patch) AUC is {val_auc:.4f}, ACC is {val_acc:.4f}.")
+        # concatenate
+        save_labels = np.concatenate(save_labels)
+        save_predict = np.vstack(save_predict)
+        print(save_labels.shape)
+        print(save_predict.shape)
+        if not os.path.exists(self.cfg["checkpoints"] + '/test_results'):
+            os.mkdir(self.cfg["checkpoints"] + '/test_results')
+        np.save(os.path.join(self.cfg["checkpoints"] + '/test_results', dataset + '_label_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.npy'), save_labels)
+        np.save(os.path.join(self.cfg["checkpoints"] + '/test_results', dataset + '_pred_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.npy'), save_predict)
+        
         # print results
         for k in ['overall_auc', 'overall_acc', 'overall_f1']:
-            print(f"{k}: {test_perf[k]}")
+            print(f"{k}: {perf[k]}")
         print(f'\nconfusion matrix')
-        print(test_perf['conf_mat'])
+        print(perf['conf_mat'])
         print(f'accuracy for each class')
-        print(test_perf['acc_per_subtype'])
+        print(perf['acc_per_subtype'])
 
         print("\nTesting has finished.")
+
+        info = {'patch': patch_info, 'performance':perf}
+        save_dict(info, f"{self.cfg['checkpoints']}/test_{dataset}_{self.cfg['val_criteria']}.pkl")
+        save_json(info['performance'], f"{self.cfg['checkpoints']}/test_{dataset}_{self.cfg['val_criteria']}.json")
+        # print(roc_auc_score(save_labels, save_predict,multi_class='ovr'))
 
     def run(self):
         if not self.cfg['only_test']:
@@ -457,12 +502,46 @@ if __name__ == '__main__':
     # print(slices)
     # slice = [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99]
 
-    # sample config file for the training class
-    cfg = {'tensorboard_dir': '../../CPSC540/DANN_grade_resnet18_block3_ws/tensorboard_log', # dir to save tensorboard
+    # # sample config file for the training class
+    # cfg = {'tensorboard_dir': '../../CPSC540/DANN_grade_resnet18_block3_ws/tensorboard_log', # dir to save tensorboard
+    # 'saved_model_path': None,  # path of pretrained model
+    # 'model_name': 'resnet18', # resnet34 or resnet18
+    # 'feature_block': 3, # select the feature layer that is sent to the domain discriminator, int from 1 ~ 4
+    # 'classification_type': 'full', # classify all, or benign vs cancer, or low grade vs high grade. String: 'full', 'cancer' or 'grade'
+    # 'use_weighted_loss': True,
+    # 'optimizer': 'Adam',  # name of optimizer
+    # 'lr': 0.00001,  # learning rate
+    # 'momentum': 0, # momentum for SGD
+    # 'wd': 0.000,  # weight decay
+    # 'use_schedular': True,  # bool to select whether to use scheduler
+    # 'use_earlystopping': True,
+    # 'earlystopping_epoch': 10, # early stop the training if no improvement on validation for this number of epochs
+    # 'epochs': 500,  # number of training epochs
+    # 'source_dataset': '../../data/VPC-10X',   # path to vancouver dataset
+    # 'source_train_idx': [2,5,6,7],   # indexes of the slides used for training (van dataset)
+    # 'source_val_idx': [3],   # indexes of the slides used for validation (van dataset)
+    # 'source_test_idx': [1],   # indexes of the slides used for testing (van dataset)
+    # 'batch_size': 16,  # batch size
+    # 'augment': False,  # whether use classical cv augmentation
+    # 'target_dataset': '../../data/Colorado-10X',  # path to Colorado dataset
+    # # 'target_train_idx': [0, 2, 3, 4, 5, 6, 94],  # indexes of the slides used for training (CO dataset)
+    # 'target_train_idx': [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99],  # indexes of the slides used for training (CO dataset)
+    # 'target_val_idx': [96, 98],
+    # #'target_test_idx': [1, 97, 99],  # indexes of the slides used for testing (CO dataset)
+    # 'target_test_idx': [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99],  # indexes of the slides used for testing (CO dataset)
+    # 'num_workers': 1, # number of workers
+    # 'val_criteria': 'val_loss',  # criteria to keep the current best model, can be overall_acc, overall_f1, overall_auc, val_loss
+    # 'checkpoints': '../../CPSC540/DANN_grade_resnet18_block3_ws',  # dir to save the best model, training configurations and results
+    # 'only_test': False  # select true if only want to do testing
+
+    # }
+
+    # reverse colorado and vancouver
+    cfg = {'tensorboard_dir': '/workspace/CPSC540/resnet18_3class/DANN_block3/tensorboard_log', # dir to save tensorboard
     'saved_model_path': None,  # path of pretrained model
     'model_name': 'resnet18', # resnet34 or resnet18
     'feature_block': 3, # select the feature layer that is sent to the domain discriminator, int from 1 ~ 4
-    'classification_type': 'full', # classify all, or benign vs cancer, or low grade vs high grade. String: 'full', 'cancer' or 'grade'
+    'classification_type': 'three_class', # classify all, or benign vs cancer, or low grade vs high grade. String: 'full', 'cancer' or 'grade'
     'use_weighted_loss': True,
     'optimizer': 'Adam',  # name of optimizer
     'lr': 0.00001,  # learning rate
@@ -472,23 +551,22 @@ if __name__ == '__main__':
     'use_earlystopping': True,
     'earlystopping_epoch': 10, # early stop the training if no improvement on validation for this number of epochs
     'epochs': 500,  # number of training epochs
-    'source_dataset': '../../data/VPC-10X',   # path to vancouver dataset
-    'source_train_idx': [2,5,6,7],   # indexes of the slides used for training (van dataset)
-    'source_val_idx': [3],   # indexes of the slides used for validation (van dataset)
-    'source_test_idx': [1],   # indexes of the slides used for testing (van dataset)
+    'target_dataset': '/workspace/CPSC540/data/VPC-10X',   # path to vancouver dataset
+    'target_train_idx': [2,5,6,7],   # indexes of the slides used for training (van dataset)
+    'target_val_idx': [3],   # indexes of the slides used for validation (van dataset)
+    'target_test_idx': [1],   # indexes of the slides used for testing (van dataset)
     'batch_size': 16,  # batch size
     'augment': False,  # whether use classical cv augmentation
-    'target_dataset': '../../data/Colorado-10X',  # path to Colorado dataset
-    # 'target_train_idx': [0, 2, 3, 4, 5, 6, 94],  # indexes of the slides used for training (CO dataset)
-    'target_train_idx': [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99],  # indexes of the slides used for training (CO dataset)
-    'target_val_idx': [96, 98],
-    #'target_test_idx': [1, 97, 99],  # indexes of the slides used for testing (CO dataset)
-    'target_test_idx': [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99],  # indexes of the slides used for testing (CO dataset)
+    'source_dataset': '/workspace/CPSC540/data/Colorado-10X',  # path to Colorado dataset
+    'source_train_idx': [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99],  # indexes of the slides used for training (CO dataset)
+    'source_val_idx': [96, 98],
+    'source_test_idx': [1, 97, 99],  # indexes of the slides used for testing (CO dataset)
     'num_workers': 1, # number of workers
     'val_criteria': 'val_loss',  # criteria to keep the current best model, can be overall_acc, overall_f1, overall_auc, val_loss
-    'checkpoints': '../../CPSC540/DANN_grade_resnet18_block3_ws',  # dir to save the best model, training configurations and results
-    'only_test': False  # select true if only want to do testing
+    
+    'checkpoints': '/workspace/CPSC540/resnet18_3class/DANN_block3',  # dir to save the best model, training configurations and results
 
+    'only_test': False  # select true if only want to do testing
     }
 
     cfg['num_classes'] = NUMBER_OF_CLASSES[cfg['classification_type']]
@@ -497,12 +575,3 @@ if __name__ == '__main__':
     trainer = SimpleDANNTrain(cfg)
     # run trainer
     trainer.run()
-
-    ### check the ratio
-    # train_dataloader = get_source_dataloader('../data/VPC-10X', cfg['source_train_idx'], cfg['batch_size'], cfg['classification_type'], augment=cfg['augment'], shuffle=True, num_workers=cfg['num_workers'])
-    # valid_dataloader = get_source_dataloader('../data/VPC-10X', cfg['source_val_idx'], cfg['batch_size'], cfg['classification_type'], augment=False, shuffle=False, num_workers=cfg['num_workers'])
-    # target_train_dataloader = get_target_dataloader('../data/Colorado-10X', cfg['target_train_idx'],  cfg['batch_size'], cfg['classification_type'],  augment=cfg['augment'], shuffle=True, num_workers=cfg['num_workers'])
-    # target_valid_dataloader = get_target_dataloader('../data/Colorado-10X', cfg['target_val_idx'],  cfg['batch_size'], cfg['classification_type'],  augment=False, shuffle=False, num_workers=cfg['num_workers'])
-    # print(1 / train_dataloader.dataset.ratio - 1)
-    # print(1 / valid_dataloader.dataset.ratio - 1)
-    

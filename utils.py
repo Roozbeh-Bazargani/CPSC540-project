@@ -9,10 +9,29 @@ import copy
 ## TODO: can change the data augmentation here
 AUGMENTED_TRANSFORM = transforms.Compose([
     transforms.ToPILImage(),
-    transforms.RandomResizedCrop(512),
+    # transforms.RandomResizedCrop(512),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor()]
 )
+
+
+def get_dataloader(dataset_path, slides, batch_size, classification_type, augment=False, shuffle=False, num_workers=1):
+    if dataset_path.find('VPC') != -1:
+        if augment:
+            dataset = VanDataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, transform=AUGMENTED_TRANSFORM)
+        else:
+            dataset = VanDataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type)
+        # print("length of dataset %d\n" % dataset.__len__())
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, drop_last=False)
+    elif dataset_path.find('Col') != -1:
+        if augment:
+            dataset = CODataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, transform=AUGMENTED_TRANSFORM)
+        else:
+            dataset = CODataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type)
+        # print("length of dataset %d\n" % dataset.__len__())
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, drop_last=False) 
+    return dataloader
+
 
 def get_source_dataloader(dataset_path, slides, batch_size, classification_type, augment=False, shuffle=False, num_workers=1):
     if augment:
@@ -63,7 +82,7 @@ def patch_metrics(patch_info, num_classes):
     overall_auc = np.mean([v for v in roc_auc.values()])
     overall_acc = metrics.accuracy_score(patch_info['gt_label'], patch_info['prediction'])
     overall_f1 = metrics.f1_score(patch_info['gt_label'], patch_info['prediction'], average='macro')
-    conf_mat = metrics.confusion_matrix(patch_info['gt_label'], patch_info['prediction'], labels=[0,1,2,3])
+    conf_mat = metrics.confusion_matrix(patch_info['gt_label'], patch_info['prediction'], labels=list(range(num_classes)))
     acc_per_subtype = conf_mat.diagonal() / conf_mat.sum(axis=1)
     patch_perf = {'overall_auc': overall_auc, 
     'overall_acc': overall_acc, 

@@ -32,7 +32,7 @@ class VanDataset(Dataset):
         self.classification_type = classification_type
         self.ratio = []
 
-        if self.classification_type == 'full' or self.classification_type == 'cancer':
+        if self.classification_type == 'full' or self.classification_type == 'cancer' or self.classification_type == 'three_class':
             # 4 class classification, or classify benign vs cancer
             for idx in slide_indexs:
                 slide_name = van_prefix(idx)
@@ -53,7 +53,7 @@ class VanDataset(Dataset):
                 img_names = list(filter(lambda x:int(x[-5]) != 0 and int(x[-5]) != 6 and int(x[-5]) != 1, img_names))
                 image_files = [os.path.join(slide_name, img) for img in img_names]
                 self.image_names += image_files
-        
+
         # get ratio of the class
         if self.classification_type == 'full':
             self.ratio = np.zeros(4)
@@ -71,6 +71,12 @@ class VanDataset(Dataset):
             for idx, _ in enumerate(self.image_names):
                 label = int(VANCOUVER_CLASS_INDEXES_MAPPING[self.image_names[idx][-5]])
                 label = 0 if (label == 1) else 1
+                self.ratio[label] += 1
+        elif self.classification_type == 'three_class':
+            self.ratio = np.zeros(3)
+            for idx, _ in enumerate(self.image_names):
+                label = int(VANCOUVER_CLASS_INDEXES_MAPPING[self.image_names[idx][-5]])
+                label = 2 if (label == 3) else label
                 self.ratio[label] += 1
         self.ratio = 1 / (self.ratio + 1) ## avoid divided by zero 
         self.ratio /= np.sum(self.ratio)
@@ -103,6 +109,8 @@ class VanDataset(Dataset):
             label = 0 if label == 0 else 1
         elif self.classification_type == 'grade':
             label = 0 if (label == 1) else 1
+        elif self.classification_type == 'three_class':
+            label = 2 if (label == 3) else label
 
         return {'image': image.float(), 'label':label}  
 
@@ -113,14 +121,14 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     root_folder = '../data/VPC-10X'
-    dataset = VanDataset(root_folder, slide_indexs=[2,5,6,7], classification_type='grade')
+    dataset = VanDataset(root_folder, slide_indexs=[1,3,2,5,6,7], classification_type='three_class')
 
     print(dataset.__len__())
 
-    dataset = VanDataset(root_folder, slide_indexs=[3], classification_type='grade')
+    # dataset = VanDataset(root_folder, slide_indexs=[3], classification_type='grade')
 
-    print(dataset.__len__())
+    # print(dataset.__len__())
 
-    dataset = VanDataset(root_folder, slide_indexs=[1], classification_type='grade')
+    # dataset = VanDataset(root_folder, slide_indexs=[1], classification_type='grade')
 
-    print(dataset.__len__())
+    # print(dataset.__len__())

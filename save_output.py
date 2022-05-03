@@ -246,11 +246,6 @@ def get_colorado_slice(path):
 
 
 if __name__ == '__main__':
-    # example config file
-    # slices = get_colorado_slice('../data/Colorado-10X')
-    # print("slice numbers for Colorado dataset:")
-    # print(slices)
-    # slice = [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99]
 
     # sample config file for the training class
     cfg = {
