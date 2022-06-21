@@ -8,11 +8,13 @@ from skimage import io
 import numpy as np
 import torch
 
+from color_normalization import *
+
 COLORADO_CLASS_INDEXES_MAPPING = {'A': 0, 'AI': 0, 'B': 1, 'C': 2, 'F': 2, 'H': 0, 'I': 3, 'P': 2, 'S': 1, 'T': 2, 'M': 1, 'SC': 2}
 
 class CODataset(Dataset):
 
-    def __init__(self, root_folder, slide_indexs=[], classification_type='full', transform=None):
+    def __init__(self, root_folder, slide_indexs=[], classification_type='full', transform=None, stain_augmentation=False):
         """
         Input:
         - root_folder: root folder to the dataset
@@ -102,6 +104,14 @@ class CODataset(Dataset):
         else:
             self.transform = transform
 
+        # stain augmentation
+        self.stain_augmentation = stain_augmentation
+        if self.stain_augmentation:
+            print("use stain augmentation, generating normalizers")
+            self.color_normalizer = color_normalizers()
+        else:
+            self.color_normalizer = None
+
     def __len__(self):
         return len(self.image_names)
 
@@ -114,7 +124,12 @@ class CODataset(Dataset):
         Output:
         - image and label
         """
-        image = io.imread(os.path.join(self.root_folder, self.image_names[idx]))
+        if self.stain_augmentation:
+            image = staintools.read_image(os.path.join(self.root_folder, self.image_names[idx]))
+            image = color_augmentation(image, self.color_normalizer)
+            image = image / 255
+        else:
+            image = io.imread(os.path.join(self.root_folder, self.image_names[idx]))
         image = self.transform(image)
         label = self.labels[idx]
 
@@ -125,6 +140,7 @@ class CODataset(Dataset):
         elif self.classification_type == 'three_class':
             label = 2 if (label == 3) else label
         
+
         return {'image': image.float(), 'label':label}  
 
 

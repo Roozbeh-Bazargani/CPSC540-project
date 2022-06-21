@@ -11,13 +11,15 @@ import torch
 import cv2
 from skimage import io
 
+from color_normalization import *
+
 van_prefix = lambda x:'Slide' + str(x).zfill(3)
 
 VANCOUVER_CLASS_INDEXES_MAPPING = {'1': 0, '3': 1, '4': 2, '5': 3}
 
 class VanDataset(Dataset):
 
-    def __init__(self, root_folder, slide_indexs=[], classification_type='full', transform=None):
+    def __init__(self, root_folder, slide_indexs=[], classification_type='full', transform=None, stain_augmentation=False):
         """
         Input:
         - root_folder: root folder to the dataset
@@ -86,6 +88,15 @@ class VanDataset(Dataset):
         else:
             self.transform = transform
 
+        # stain augmentation
+        self.stain_augmentation = stain_augmentation
+        if self.stain_augmentation:
+            print("use stain augmentation, generating normalizers")
+            self.color_normalizer = color_normalizers()
+            # print(self.color_normalizer)
+        else:
+            self.color_normalizer = None
+
     def __len__(self):
         return len(self.image_names)
 
@@ -98,8 +109,12 @@ class VanDataset(Dataset):
         Output:
         - image and label
         """
-
-        image = io.imread(os.path.join(self.root_folder, self.image_names[idx]))
+        if self.stain_augmentation:
+            image = staintools.read_image(os.path.join(self.root_folder, self.image_names[idx]))
+            image = color_augmentation(image, self.color_normalizer)
+            image = image / 255
+        else:
+            image = io.imread(os.path.join(self.root_folder, self.image_names[idx]))
         image = self.transform(image)
 
         # get class

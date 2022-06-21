@@ -1,8 +1,4 @@
 import os
-from pkgutil import get_data
-import sys
-import random
-
 import torch
 import numpy as np
 import torch.nn as nn
@@ -48,7 +44,7 @@ class SimpleDANNTrain(object):
 
         # setup training loss
         if self.cfg['use_weighted_loss']:
-            dataloader = get_dataloader(self.cfg['source_dataset'], self.cfg['source_train_idx'], self.cfg['batch_size'], self.cfg['classification_type'], augment=self.cfg['augment'], shuffle=True, num_workers=self.cfg['num_workers'])
+            dataloader = get_dataloader(self.cfg['source_dataset'], self.cfg['source_train_idx'], self.cfg['batch_size'], self.cfg['classification_type'], augment=self.cfg['augment'], shuffle=True, num_workers=self.cfg['num_workers'], stain_augment=self.cfg['stain_augment'])
             print(f'Using weight loss with weights of {dataloader.dataset.ratio}\n')
             weights = torch.FloatTensor(dataloader.dataset.ratio).to(self.device)
             self.criterion = torch.nn.CrossEntropyLoss(weight=weights)
@@ -347,9 +343,9 @@ class SimpleDANNTrain(object):
         # save config file
         save_json(self.cfg, os.path.join(self.cfg["checkpoints"], 'training_config.json'))
         # get dataset
-        train_dataloader = get_dataloader(self.cfg['source_dataset'], self.cfg['source_train_idx'], self.cfg['batch_size'], self.cfg['classification_type'], augment=self.cfg['augment'], shuffle=True, num_workers=self.cfg['num_workers'])
+        train_dataloader = get_dataloader(self.cfg['source_dataset'], self.cfg['source_train_idx'], self.cfg['batch_size'], self.cfg['classification_type'], augment=self.cfg['augment'], shuffle=True, num_workers=self.cfg['num_workers'], stain_augment=self.cfg['stain_augment'])
         valid_dataloader = get_dataloader(self.cfg['source_dataset'], self.cfg['source_val_idx'], self.cfg['batch_size'], self.cfg['classification_type'], augment=False, shuffle=False, num_workers=self.cfg['num_workers'])
-        target_train_dataloader = get_dataloader(self.cfg['target_dataset'], self.cfg['target_train_idx'],  self.cfg['batch_size'], self.cfg['classification_type'],  augment=self.cfg['augment'], shuffle=True, num_workers=self.cfg['num_workers'])
+        target_train_dataloader = get_dataloader(self.cfg['target_dataset'], self.cfg['target_train_idx'],  self.cfg['batch_size'], self.cfg['classification_type'],  augment=self.cfg['augment'], shuffle=True, num_workers=self.cfg['num_workers'], stain_augment=self.cfg['stain_augment'])
         target_valid_dataloader = get_dataloader(self.cfg['target_dataset'], self.cfg['target_val_idx'],  self.cfg['batch_size'], self.cfg['classification_type'],  augment=False, shuffle=False, num_workers=self.cfg['num_workers'])
         
         if self.cfg['val_criteria'] == 'val_loss':
@@ -538,6 +534,7 @@ if __name__ == '__main__':
     'source_test_idx': [6],   # indexes of the slides used for testing (van dataset)
     'batch_size': 16,  # batch size
     'augment': False,  # whether use classical cv augmentation
+    'stain_augment': False,  # whether use stain augmentation
     'target_dataset': '/workspace/CPSC540/data/Colorado-10X',  # path to Colorado dataset
     # 'target_train_idx': [0, 2, 3, 4, 5, 6, 94],  # indexes of the slides used for training (CO dataset)
     'target_train_idx': [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99],  # indexes of the slides used for training (CO dataset)

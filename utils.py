@@ -15,38 +15,40 @@ AUGMENTED_TRANSFORM = transforms.Compose([
 )
 
 
-def get_dataloader(dataset_path, slides, batch_size, classification_type, augment=False, shuffle=False, num_workers=1):
+
+def get_dataloader(dataset_path, slides, batch_size, classification_type, augment=False, shuffle=False, num_workers=1, stain_augment=False):
+    
     if dataset_path.find('VPC') != -1:
         if augment:
-            dataset = VanDataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, transform=AUGMENTED_TRANSFORM)
+            dataset = VanDataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, transform=AUGMENTED_TRANSFORM, stain_augmentation=stain_augment)
         else:
-            dataset = VanDataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type)
+            dataset = VanDataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, stain_augmentation=stain_augment)
         # print("length of dataset %d\n" % dataset.__len__())
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, drop_last=False)
     elif dataset_path.find('Col') != -1:
         if augment:
-            dataset = CODataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, transform=AUGMENTED_TRANSFORM)
+            dataset = CODataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, transform=AUGMENTED_TRANSFORM, stain_augmentation=stain_augment)
         else:
-            dataset = CODataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type)
+            dataset = CODataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, stain_augmentation=stain_augment)
         # print("length of dataset %d\n" % dataset.__len__())
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, drop_last=False) 
     return dataloader
 
 
-def get_source_dataloader(dataset_path, slides, batch_size, classification_type, augment=False, shuffle=False, num_workers=1):
+def get_source_dataloader(dataset_path, slides, batch_size, classification_type, augment=False, shuffle=False, num_workers=1, stain_augment=False):
     if augment:
-        dataset = VanDataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, transform=AUGMENTED_TRANSFORM)
+        dataset = VanDataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, transform=AUGMENTED_TRANSFORM, stain_augmentation=stain_augment)
     else:
-        dataset = VanDataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type)
+        dataset = VanDataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, stain_augmentation=stain_augment)
     # print("length of dataset %d\n" % dataset.__len__())
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, drop_last=False) 
     return dataloader
 
-def get_target_dataloader(dataset_path, slides, batch_size, classification_type, augment=False, shuffle=False, num_workers=1):
+def get_target_dataloader(dataset_path, slides, batch_size, classification_type, augment=False, shuffle=False, num_workers=1, stain_augment=False):
     if augment:
-        dataset = CODataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, transform=AUGMENTED_TRANSFORM)
+        dataset = CODataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, transform=AUGMENTED_TRANSFORM, stain_augmentation=stain_augment)
     else:
-        dataset = CODataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type)
+        dataset = CODataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, stain_augmentation=stain_augment)
     # print("length of dataset %d\n" % dataset.__len__())
 
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, drop_last=False) 
