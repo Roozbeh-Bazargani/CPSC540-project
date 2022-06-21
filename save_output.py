@@ -15,7 +15,7 @@ from sklearn.metrics import roc_auc_score
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 
-NUMBER_OF_CLASSES = {'full': 4, 'cancer': 2, 'grade': 2}
+from train import NUMBER_OF_CLASSES
 
 
 class SimpleDANNTest(object):
@@ -51,9 +51,9 @@ class SimpleDANNTest(object):
         """
         print(f"\nStart SimpleTrain testing on {dataset} dataset.")
         if dataset == 'source':
-            test_dataloader = get_source_dataloader(self.cfg['source_dataset'], slides=self.cfg['source_test_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
+            test_dataloader = get_dataloader(self.cfg['source_dataset'], slides=self.cfg['source_test_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
         elif dataset == 'target':
-            test_dataloader = get_target_dataloader(self.cfg['target_dataset'], slides=self.cfg['target_test_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
+            test_dataloader = get_dataloader(self.cfg['target_dataset'], slides=self.cfg['target_test_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
         
         # load best model
         path = os.path.join(self.cfg["checkpoints"], f"model_{self.cfg['val_criteria']}.pth")
@@ -97,8 +97,69 @@ class SimpleDANNTest(object):
         print(save_labels.shape)
         print(save_predict.shape)
 
-        np.save(os.path.join(self.cfg["checkpoints"] + '/test_results', dataset + '_label_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.npy'), save_labels)
-        np.save(os.path.join(self.cfg["checkpoints"] + '/test_results', dataset + '_pred_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.npy'), save_predict)
+        np.save(os.path.join(self.cfg["checkpoints"] + '/test_results', dataset + '_test_label_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.npy'), save_labels)
+        np.save(os.path.join(self.cfg["checkpoints"] + '/test_results', dataset + '_test_pred_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.npy'), save_predict)
+
+        print(roc_auc_score(save_labels, save_predict,multi_class='ovr'))
+
+        """
+        Test all
+        """
+
+        """test the model by printing all the metrics for each saved model
+        """
+        print(f"\nStart SimpleTrain testing on {dataset} dataset.")
+        if dataset == 'source':
+            slides = self.cfg['source_train_idx'] + self.cfg['source_val_idx'] + self.cfg['source_test_idx']
+            test_dataloader = get_dataloader(self.cfg['source_dataset'], slides=slides, batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
+        elif dataset == 'target':
+            slides = self.cfg['target_train_idx'] + self.cfg['target_val_idx'] + self.cfg['target_test_idx']
+            test_dataloader = get_dataloader(self.cfg['target_dataset'], slides=slides, batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
+        
+        # load best model
+        path = os.path.join(self.cfg["checkpoints"], f"model_{self.cfg['val_criteria']}.pth")
+        state = torch.load(path, map_location=self.device)
+        if isinstance(self.model, nn.DataParallel):
+            self.model.module.load_state_dict(state["model"], strict=True)
+        else:
+            self.model.load_state_dict(state["model"], strict=True)
+
+
+        # run test on dataset
+        self.model.eval()
+        save_labels = []
+        save_predict = []
+        txt = 'Test : '
+        with torch.no_grad():
+            prefix = txt
+            for batch_data in tqdm(test_dataloader, desc=prefix,
+                    dynamic_ncols=True, leave=True, position=0):
+                # load data
+                data = batch_data['image']
+                label = batch_data['label']
+                data  = data.cuda() if torch.cuda.is_available() else data
+                label = label.cuda() if torch.cuda.is_available() else label
+                predicted, prob, _, _ = self.forward(data, 0)
+                save_labels.append(label.to('cpu').detach().numpy())
+
+                prediction = prob.to('cpu').detach().numpy()
+                # prediction = np.argmax(prediction, axis=1)
+                save_predict.append(prediction)
+                # clean cache
+                del data
+                del label
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+
+        # concatenate
+        save_labels = np.concatenate(save_labels)
+        save_predict = np.vstack(save_predict)
+        print(save_labels.shape)
+        print(save_predict.shape)
+
+        np.save(os.path.join(self.cfg["checkpoints"] + '/test_results', dataset + '_all_label_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.npy'), save_labels)
+        np.save(os.path.join(self.cfg["checkpoints"] + '/test_results', dataset + '_all_pred_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.npy'), save_predict)
 
         print(roc_auc_score(save_labels, save_predict,multi_class='ovr'))
 
@@ -171,15 +232,15 @@ class SimpleDANNTest(object):
         plt.savefig(os.path.join(self.cfg["checkpoints"] + '/test_results/images', 'pred_' + 'DANN_block' + str(self.cfg['feature_block']) + '_balanced_without_aug.png'))
 
     def run(self):
-        self.test('source')
+        # self.test('source')
         self.test('target')
 
     def discriminator_acc(self, dataset):
         print(f"\nStart SimpleTrain testing on {dataset} dataset.")
         if dataset == 'source':
-            test_dataloader = get_source_dataloader(self.cfg['source_dataset'], slides=self.cfg['source_train_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
+            test_dataloader = get_dataloader(self.cfg['source_dataset'], slides=self.cfg['source_test_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
         elif dataset == 'target':
-            test_dataloader = get_target_dataloader(self.cfg['target_dataset'], slides=self.cfg['target_train_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
+            test_dataloader = get_dataloader(self.cfg['target_dataset'], slides=self.cfg['target_test_idx'], batch_size=self.cfg['batch_size'], classification_type=self.cfg['classification_type'], augment=False, num_workers=self.cfg['num_workers'])
         # load best model
         path = os.path.join(self.cfg["checkpoints"], f"model_{self.cfg['val_criteria']}.pth")
         state = torch.load(path, map_location=self.device)
@@ -231,23 +292,10 @@ class SimpleDANNTest(object):
         print(acc)
         
 
-
-def get_colorado_slice(path):
-    """
-    get the slide indexes for colorado dataset
-    """
-    slices = []
-    for folders in os.listdir(path):
-        imgs = os.listdir(os.path.join(path, folders))
-        for img in imgs:
-            if int(img[1:3]) not in slices:
-                slices.append(int(img[1:3]))
-    return slices
-
-
 if __name__ == '__main__':
 
     # sample config file for the training class
+
     cfg = {
     'model_name': 'resnet18', # resnet34 or resnet18
     'feature_block': 3, # select the feature layer that is sent to the domain discriminator, int from 1 ~ 4
@@ -261,22 +309,22 @@ if __name__ == '__main__':
     'use_earlystopping': True,
     'earlystopping_epoch': 10, # early stop the training if no improvement on validation for this number of epochs
     'epochs': 500,  # number of training epochs
-    'source_dataset': '../../data/VPC-10X',   # path to vancouver dataset
-    'source_train_idx': [2,5,6,7],   # indexes of the slides used for training (van dataset)
-    'source_val_idx': [3],   # indexes of the slides used for validation (van dataset)
-    'source_test_idx': [1],   # indexes of the slides used for testing (van dataset)
     'batch_size': 16,  # batch size
     'augment': False,  # whether use classical cv augmentation
-    'target_dataset': '../../data/Colorado-10X',  # path to Colorado dataset
-    # 'target_train_idx': [0, 2, 3, 4, 5, 6, 94],  # indexes of the slides used for training (CO dataset)
+    'source_dataset': '/workspace/CPSC540/data/VPC-10X',   # path to vancouver dataset
+    'source_train_idx': [1,3,6,7],   # indexes of the slides used for training (van dataset)
+    'source_val_idx': [2],   # indexes of the slides used for validation (van dataset)
+    'source_test_idx': [5],   # indexes of the slides used for testing (van dataset)
+    # 'target_test_idx': [1, 2, 3, 5, 6, 7],
+    'batch_size': 16,  # batch size
+    'augment': False,  # whether use classical cv augmentation
+    'target_dataset': '/workspace/CPSC540/data/Colorado-10X',  # path to Colorado dataset
     'target_train_idx': [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99],  # indexes of the slides used for training (CO dataset)
     'target_val_idx': [96, 98],
-    #'target_test_idx': [1, 97, 99],  # indexes of the slides used for testing (CO dataset)
-    'target_test_idx': [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99],  # indexes of the slides used for testing (CO dataset)
+    'target_test_idx': [1, 97, 99],  # indexes of the slides used for testing (CO dataset)
     'num_workers': 1, # number of workers
-
-    'val_criteria': 'val_loss', 
-    'checkpoints': '../../CPSC540/DANN_grade_resnet18_block3_ws',  # dir to save the best model, training configurations and results
+    'val_criteria': 'val_loss',  # criteria to keep the current best model, can be overall_acc, overall_f1, overall_auc, val_loss    
+    'checkpoints': '/workspace/CPSC540/resnet18/DANN_full_block3_fold2',  # dir to save the best model, training configurations and results
 
     }
 
@@ -286,5 +334,5 @@ if __name__ == '__main__':
     trainer = SimpleDANNTest(cfg)
     # run trainer
     # trainer.plot_tSNE()
-    # trainer.get_discriminator_acc()
+    trainer.get_discriminator_acc()
     trainer.run()

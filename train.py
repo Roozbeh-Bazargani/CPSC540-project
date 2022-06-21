@@ -135,9 +135,13 @@ class SimpleDANNTrain(object):
 
             # get loss
             loss_s_label = self.criterion(sc_pred.type(torch.float), label.type(torch.long))
-            loss_s_domain = self.criterion_domain(sd_pred.type(torch.float), s_domain_label.type(torch.long))
-            loss_t_domain = self.criterion_domain(td_pred.type(torch.float), t_domain_label.type(torch.long))
-            loss = loss_s_label + loss_s_domain + loss_t_domain
+            # loss_s_domain = self.criterion_domain(sd_pred.type(torch.float), s_domain_label.type(torch.long))
+            # loss_t_domain = self.criterion_domain(td_pred.type(torch.float), t_domain_label.type(torch.long))
+            # loss = loss_s_label + loss_s_domain + loss_t_domain
+            domain_pred = torch.cat((sd_pred.type(torch.float), td_pred.type(torch.float)))
+            domain_label = torch.cat((s_domain_label.type(torch.long), t_domain_label.type(torch.long)))
+            loss_domain = self.criterion_domain(domain_pred, domain_label)
+            loss = loss_s_label + loss_domain
 
             # backprop
             self.optimizer.zero_grad()
@@ -155,8 +159,9 @@ class SimpleDANNTrain(object):
             del t_label
             del t_domain_label
             del loss_s_label 
-            del loss_s_domain
-            del loss_t_domain
+            # del loss_s_domain
+            # del loss_t_domain
+            del loss_domain
             del loss
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
@@ -291,9 +296,18 @@ class SimpleDANNTrain(object):
 
                 # get loss
                 loss_s_label = self.criterion(sc_pred.type(torch.float), label.type(torch.long))
-                loss_s_domain = self.criterion_domain(sd_pred.type(torch.float), s_domain_label.type(torch.long))
-                loss_t_domain = self.criterion_domain(td_pred.type(torch.float), t_domain_label.type(torch.long))
-                loss = loss_s_label + loss_s_domain + loss_t_domain
+                
+                # loss_s_domain = self.criterion_domain(sd_pred.type(torch.float), s_domain_label.type(torch.long))
+                # loss_t_domain = self.criterion_domain(td_pred.type(torch.float), t_domain_label.type(torch.long))
+                # loss = loss_s_label + loss_s_domain + loss_t_domain
+                # loss = loss / 3 + 1
+
+                # change to subtraction
+                domain_pred = torch.cat((sd_pred.type(torch.float), td_pred.type(torch.float)))
+                domain_label = torch.cat((s_domain_label.type(torch.long), t_domain_label.type(torch.long)))
+                loss_domain = self.criterion_domain(domain_pred, domain_label)
+                loss = loss_s_label + loss_domain
+                # loss = loss / 2 + 1
 
                 # get performance metrics
                 loss_ += loss.item() * label.shape[0]
@@ -304,8 +318,9 @@ class SimpleDANNTrain(object):
                 del t_label
                 del t_domain_label
                 del loss_s_label 
-                del loss_s_domain
-                del loss_t_domain
+                # del loss_s_domain
+                # del loss_t_domain
+                del loss_domain
                 del loss
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
@@ -502,46 +517,12 @@ if __name__ == '__main__':
     # print(slices)
     # slice = [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99]
 
-    # # sample config file for the training class
-    # cfg = {'tensorboard_dir': '../../CPSC540/DANN_grade_resnet18_block3_ws/tensorboard_log', # dir to save tensorboard
-    # 'saved_model_path': None,  # path of pretrained model
-    # 'model_name': 'resnet18', # resnet34 or resnet18
-    # 'feature_block': 3, # select the feature layer that is sent to the domain discriminator, int from 1 ~ 4
-    # 'classification_type': 'full', # classify all, or benign vs cancer, or low grade vs high grade. String: 'full', 'cancer' or 'grade'
-    # 'use_weighted_loss': True,
-    # 'optimizer': 'Adam',  # name of optimizer
-    # 'lr': 0.00001,  # learning rate
-    # 'momentum': 0, # momentum for SGD
-    # 'wd': 0.000,  # weight decay
-    # 'use_schedular': True,  # bool to select whether to use scheduler
-    # 'use_earlystopping': True,
-    # 'earlystopping_epoch': 10, # early stop the training if no improvement on validation for this number of epochs
-    # 'epochs': 500,  # number of training epochs
-    # 'source_dataset': '../../data/VPC-10X',   # path to vancouver dataset
-    # 'source_train_idx': [2,5,6,7],   # indexes of the slides used for training (van dataset)
-    # 'source_val_idx': [3],   # indexes of the slides used for validation (van dataset)
-    # 'source_test_idx': [1],   # indexes of the slides used for testing (van dataset)
-    # 'batch_size': 16,  # batch size
-    # 'augment': False,  # whether use classical cv augmentation
-    # 'target_dataset': '../../data/Colorado-10X',  # path to Colorado dataset
-    # # 'target_train_idx': [0, 2, 3, 4, 5, 6, 94],  # indexes of the slides used for training (CO dataset)
-    # 'target_train_idx': [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99],  # indexes of the slides used for training (CO dataset)
-    # 'target_val_idx': [96, 98],
-    # #'target_test_idx': [1, 97, 99],  # indexes of the slides used for testing (CO dataset)
-    # 'target_test_idx': [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99],  # indexes of the slides used for testing (CO dataset)
-    # 'num_workers': 1, # number of workers
-    # 'val_criteria': 'val_loss',  # criteria to keep the current best model, can be overall_acc, overall_f1, overall_auc, val_loss
-    # 'checkpoints': '../../CPSC540/DANN_grade_resnet18_block3_ws',  # dir to save the best model, training configurations and results
-    # 'only_test': False  # select true if only want to do testing
-
-    # }
-
-    # reverse colorado and vancouver
-    cfg = {'tensorboard_dir': '/workspace/CPSC540/resnet18_3class/DANN_block3/tensorboard_log', # dir to save tensorboard
+    # sample config file for the training class
+    cfg = {
     'saved_model_path': None,  # path of pretrained model
     'model_name': 'resnet18', # resnet34 or resnet18
     'feature_block': 3, # select the feature layer that is sent to the domain discriminator, int from 1 ~ 4
-    'classification_type': 'three_class', # classify all, or benign vs cancer, or low grade vs high grade. String: 'full', 'cancer' or 'grade'
+    'classification_type': 'full', # classify all, or benign vs cancer, or low grade vs high grade. String: 'full', 'cancer' or 'grade'
     'use_weighted_loss': True,
     'optimizer': 'Adam',  # name of optimizer
     'lr': 0.00001,  # learning rate
@@ -551,26 +532,59 @@ if __name__ == '__main__':
     'use_earlystopping': True,
     'earlystopping_epoch': 10, # early stop the training if no improvement on validation for this number of epochs
     'epochs': 500,  # number of training epochs
-    'target_dataset': '/workspace/CPSC540/data/VPC-10X',   # path to vancouver dataset
-    'target_train_idx': [2,5,6,7],   # indexes of the slides used for training (van dataset)
-    'target_val_idx': [3],   # indexes of the slides used for validation (van dataset)
-    'target_test_idx': [1],   # indexes of the slides used for testing (van dataset)
+    'source_dataset': '/workspace/CPSC540/data/VPC-10X',   # path to vancouver dataset
+    'source_train_idx': [1, 2, 3, 5],   # indexes of the slides used for training (van dataset)
+    'source_val_idx': [7],   # indexes of the slides used for validation (van dataset)
+    'source_test_idx': [6],   # indexes of the slides used for testing (van dataset)
     'batch_size': 16,  # batch size
     'augment': False,  # whether use classical cv augmentation
-    'source_dataset': '/workspace/CPSC540/data/Colorado-10X',  # path to Colorado dataset
-    'source_train_idx': [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99],  # indexes of the slides used for training (CO dataset)
-    'source_val_idx': [96, 98],
-    'source_test_idx': [1, 97, 99],  # indexes of the slides used for testing (CO dataset)
+    'target_dataset': '/workspace/CPSC540/data/Colorado-10X',  # path to Colorado dataset
+    # 'target_train_idx': [0, 2, 3, 4, 5, 6, 94],  # indexes of the slides used for training (CO dataset)
+    'target_train_idx': [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99],  # indexes of the slides used for training (CO dataset)
+    'target_val_idx': [96, 98],
+    'target_test_idx': [1, 97, 99],  # indexes of the slides used for testing (CO dataset)
     'num_workers': 1, # number of workers
     'val_criteria': 'val_loss',  # criteria to keep the current best model, can be overall_acc, overall_f1, overall_auc, val_loss
-    
-    'checkpoints': '/workspace/CPSC540/resnet18_3class/DANN_block3',  # dir to save the best model, training configurations and results
-
+    'checkpoints': '/workspace/CPSC540/resnet18/DANN_full_block3_fold3',  # dir to save the best model, training configurations and results
     'only_test': False  # select true if only want to do testing
+
     }
 
-    cfg['num_classes'] = NUMBER_OF_CLASSES[cfg['classification_type']]
+    # # reverse colorado and vancouver
+    # cfg = {
+    # 'saved_model_path': None,  # path of pretrained model
+    # 'model_name': 'resnet18', # resnet34 or resnet18
+    # 'feature_block': 3, # select the feature layer that is sent to the domain discriminator, int from 1 ~ 4
+    # 'classification_type': 'three_class', # classify all, or benign vs cancer, or low grade vs high grade. String: 'full', 'cancer' or 'grade'
+    # 'use_weighted_loss': True,
+    # 'optimizer': 'Adam',  # name of optimizer
+    # 'lr': 0.00001,  # learning rate
+    # 'momentum': 0, # momentum for SGD
+    # 'wd': 0.000,  # weight decay
+    # 'use_schedular': True,  # bool to select whether to use scheduler
+    # 'use_earlystopping': True,
+    # 'earlystopping_epoch': 10, # early stop the training if no improvement on validation for this number of epochs
+    # 'epochs': 500,  # number of training epochs
+    # 'target_dataset': '/workspace/CPSC540/data/VPC-10X',   # path to vancouver dataset
+    # 'target_train_idx': [2,5,6,7],   # indexes of the slides used for training (van dataset)
+    # 'target_val_idx': [3],   # indexes of the slides used for validation (van dataset)
+    # 'target_test_idx': [1],   # indexes of the slides used for testing (van dataset)
+    # 'batch_size': 16,  # batch size
+    # 'augment': False,  # whether use classical cv augmentation
+    # 'source_dataset': '/workspace/CPSC540/data/Colorado-10X',  # path to Colorado dataset
+    # 'source_train_idx':  [1, 2, 97, 4, 5, 6, 96],  # indexes of the slides used for training (CO dataset)
+    # 'source_val_idx': [94, 99],
+    # 'source_test_idx':  [0, 3, 98],  # indexes of the slides used for testing (CO dataset)
+    # 'num_workers': 1, # number of workers
+    # 'val_criteria': 'val_loss',  # criteria to keep the current best model, can be overall_acc, overall_f1, overall_auc, val_loss
+    
+    # 'checkpoints': '/workspace/CPSC540/resnet18_3class/DANN_block3_plus_fold2',  # dir to save the best model, training configurations and results
 
+    # 'only_test': False  # select true if only want to do testing
+    # }
+
+    cfg['num_classes'] = NUMBER_OF_CLASSES[cfg['classification_type']]
+    cfg['tensorboard_dir'] = os.path.join(cfg['checkpoints'], 'tensorboard_log') 
     # init trainer
     trainer = SimpleDANNTrain(cfg)
     # run trainer

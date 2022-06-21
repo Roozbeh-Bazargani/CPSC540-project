@@ -93,7 +93,9 @@ class CODataset(Dataset):
         self.ratio = 1 / (self.ratio + 1) ## avoid divided by zero 
         self.ratio /= np.sum(self.ratio)
         
-        assert len(self.labels) == len(self.image_names)
+        # assert len(self.labels) == len(self.image_names)
+        # for i in self.image_names:
+        #     print(i)
 
         if transform is None:
             self.transform = transforms.ToTensor()
@@ -129,12 +131,15 @@ class CODataset(Dataset):
 if __name__ == '__main__':
     # test image reading
 
+    colorado = [0,1,2,3,4,5,6,94,96,97,98,99]
+
     import matplotlib.pyplot as plt
 
     root_folder = '../data/Colorado-10X'
-    dataset = CODataset(root_folder, slide_indexs=[0, 2, 3, 4, 5, 6, 94], classification_type='three_class')
+    for i in colorado:
+        dataset = CODataset(root_folder, slide_indexs=[i], classification_type='three_class')
 
-    print(dataset.__len__())
+        print(dataset.__len__())
 
     # dataset = CODataset(root_folder, slide_indexs=[96, 98], classification_type='grade')
 
