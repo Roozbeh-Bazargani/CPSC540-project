@@ -7,10 +7,8 @@ from utils import *
 # from models import Model
 from models import DANN
 import torch.nn.functional as F
-from sklearn.metrics import accuracy_score, roc_auc_score
-from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-
+from sklearn.metrics import accuracy_score
 
 NUMBER_OF_CLASSES = {'full': 4, 'cancer': 2, 'grade': 2, 'three_class': 3}
 
@@ -44,7 +42,7 @@ class SimpleDANNTrain(object):
 
         # setup training loss
         if self.cfg['use_weighted_loss']:
-            dataloader = get_dataloader(self.cfg['source_dataset'], self.cfg['source_train_idx'], self.cfg['batch_size'], self.cfg['classification_type'], augment=self.cfg['augment'], shuffle=True, num_workers=self.cfg['num_workers'], stain_augment=self.cfg['stain_augment'])
+            dataloader = get_dataloader(self.cfg['source_dataset'], self.cfg['source_train_idx'], self.cfg['batch_size'], self.cfg['classification_type'], augment=self.cfg['augment'], shuffle=True, num_workers=self.cfg['num_workers'])
             print(f'Using weight loss with weights of {dataloader.dataset.ratio}\n')
             weights = torch.FloatTensor(dataloader.dataset.ratio).to(self.device)
             self.criterion = torch.nn.CrossEntropyLoss(weight=weights)
@@ -514,6 +512,7 @@ if __name__ == '__main__':
     # slice = [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99]
 
     # sample config file for the training class
+    torch.set_num_threads(4)
     cfg = {
     'saved_model_path': None,  # path of pretrained model
     'model_name': 'resnet18', # resnet34 or resnet18
@@ -533,18 +532,17 @@ if __name__ == '__main__':
     'source_val_idx': [7],   # indexes of the slides used for validation (van dataset)
     'source_test_idx': [6],   # indexes of the slides used for testing (van dataset)
     'batch_size': 16,  # batch size
-    'augment': False,  # whether use classical cv augmentation
+    'augment': True,  # whether use classical cv augmentation
     'stain_augment': False,  # whether use stain augmentation
     'target_dataset': '/workspace/CPSC540/data/Colorado-10X',  # path to Colorado dataset
     # 'target_train_idx': [0, 2, 3, 4, 5, 6, 94],  # indexes of the slides used for training (CO dataset)
-    'target_train_idx': [0, 1, 2, 3, 4, 5, 6, 94, 96, 97, 98, 99],  # indexes of the slides used for training (CO dataset)
+    'target_train_idx': [0, 2, 3, 4, 5, 6, 94],  # indexes of the slides used for training (CO dataset)
     'target_val_idx': [96, 98],
     'target_test_idx': [1, 97, 99],  # indexes of the slides used for testing (CO dataset)
-    'num_workers': 1, # number of workers
+    'num_workers': 4, # number of workers
     'val_criteria': 'val_loss',  # criteria to keep the current best model, can be overall_acc, overall_f1, overall_auc, val_loss
-    'checkpoints': '/workspace/CPSC540/resnet18/DANN_full_block3_fold3',  # dir to save the best model, training configurations and results
+    'checkpoints': '/workspace/CPSC540/resnet18/DANN_full_block3_fold3_geom_aug',  # dir to save the best model, training configurations and results
     'only_test': False  # select true if only want to do testing
-
     }
 
     # # reverse colorado and vancouver

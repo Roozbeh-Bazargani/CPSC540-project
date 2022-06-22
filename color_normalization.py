@@ -39,24 +39,15 @@ def color_augmentation(img, normalizers):
     
     normalizer = random.choice(normalizers)
     if normalizer != 'raw':
-        new_img = normalizer.transform(img)
-        # print("augment")
-        # print(np.mean(new_img - img))
-        
-        # import matplotlib.pyplot as plt
-        # _, axes = plt.subplots(1, 2)
-        # axes[0].imshow(new_img)
-        # axes[1].imshow(img)
-        # plt.show()
-        img = new_img
+        img = normalizer.transform(img)
     return img
     
-# AUGMENTED_TRANSFORM = transforms.Compose([
-#     transforms.ToPILImage(),
-#     transforms.RandomVerticalFlip(),
-#     transforms.RandomHorizontalFlip(),
-#     transforms.ToTensor(),
-# #     transforms.GaussianBlur(20, sigma=(0,0.1)),
-#     transforms.ColorJitter(0.1, 0.1, 0.1, 0.1)]
-# )
+AUGMENTED_TRANSFORM = transforms.Compose([
+    transforms.ToPILImage(),
+    transforms.RandomVerticalFlip(),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+#     transforms.GaussianBlur(20, sigma=(0,0.1)),
+    transforms.ColorJitter(0.1, 0.1, 0.1, 0.1)]
+)
 

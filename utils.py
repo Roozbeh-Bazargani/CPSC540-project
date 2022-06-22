@@ -6,13 +6,13 @@ import json
 import pickle
 import copy
 
-## TODO: can change the data augmentation here
-AUGMENTED_TRANSFORM = transforms.Compose([
-    transforms.ToPILImage(),
-    # transforms.RandomResizedCrop(512),
-    transforms.RandomHorizontalFlip(),
-    transforms.ToTensor()]
-)
+# ## TODO: can change the data augmentation here
+# AUGMENTED_TRANSFORM = transforms.Compose([
+#     transforms.ToPILImage(),
+#     # transforms.RandomResizedCrop(512),
+#     transforms.RandomHorizontalFlip(),
+#     transforms.ToTensor()]
+# )
 
 
 
@@ -24,14 +24,14 @@ def get_dataloader(dataset_path, slides, batch_size, classification_type, augmen
         else:
             dataset = VanDataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, stain_augmentation=stain_augment)
         # print("length of dataset %d\n" % dataset.__len__())
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, drop_last=False)
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, drop_last=False, pin_memory=True)
     elif dataset_path.find('Col') != -1:
         if augment:
             dataset = CODataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, transform=AUGMENTED_TRANSFORM, stain_augmentation=stain_augment)
         else:
             dataset = CODataset(root_folder=dataset_path, slide_indexs=slides, classification_type=classification_type, stain_augmentation=stain_augment)
         # print("length of dataset %d\n" % dataset.__len__())
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, drop_last=False) 
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, drop_last=False, pin_memory=True)
     return dataloader
 
 

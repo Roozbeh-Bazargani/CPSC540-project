@@ -17,9 +17,9 @@ RUN apt-get update && \
     vim
 
 RUN apt-get install -y \
-    python3-dev \
     python3-numpy \
     python3-pip
+
 
 RUN pip3 install --upgrade pip
 
@@ -50,9 +50,11 @@ RUN apt-get update
 
 # Install staintools
 RUN apt-get -y install libblas-dev liblapack-dev gfortran
-RUN pip3 install spams==2.6.1
+RUN pip3 install spams
 RUN pip3 install staintools
 
 # Install other dependencies
 RUN pip3 install tqdm
 RUN pip3 install tensorboard
+RUN pip install jupyterlab
+RUN pip install notebook
